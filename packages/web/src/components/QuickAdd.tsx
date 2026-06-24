@@ -4,11 +4,12 @@ import { useI18n } from '../i18n';
 
 interface Props {
   defaultProjectId?: string;
+  defaultSectionId?: string;
   onAdded: () => void;
 }
 
 /** Inline natural-language task capture (Todoist Quick Add). */
-export function QuickAdd({ defaultProjectId, onAdded }: Props) {
+export function QuickAdd({ defaultProjectId, defaultSectionId, onAdded }: Props) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -22,9 +23,12 @@ export function QuickAdd({ defaultProjectId, onAdded }: Props) {
       const task = await api.quickAdd(value);
       // In a project/inbox view, land the task here unless an explicit #project
       // was typed (the server otherwise routes label-less tasks to the Inbox).
+      const patch: { projectId?: string; sectionId?: string } = {};
       if (defaultProjectId && !value.includes('#') && task.projectId !== defaultProjectId) {
-        await api.updateTask(task.id, { projectId: defaultProjectId });
+        patch.projectId = defaultProjectId;
       }
+      if (defaultSectionId) patch.sectionId = defaultSectionId;
+      if (patch.projectId || patch.sectionId) await api.updateTask(task.id, patch);
       setText('');
       onAdded();
     } finally {

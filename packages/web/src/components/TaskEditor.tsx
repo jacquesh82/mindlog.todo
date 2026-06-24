@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { PRIORITY_COLOR } from '../format';
 import { useI18n } from '../i18n';
-import type { Label, Project, Task } from '../types';
+import type { Label, Project, Section, Task } from '../types';
 
 interface Props {
   task: Task;
@@ -28,8 +28,27 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
   const [due, setDue] = useState(toLocalInput(task.dueDate));
   const [deadline, setDeadline] = useState(task.deadline ?? '');
   const [projectId, setProjectId] = useState(task.projectId ?? '');
+  const [sectionId, setSectionId] = useState(task.sectionId ?? '');
+  const [sections, setSections] = useState<Section[]>([]);
   const [labelIds, setLabelIds] = useState<string[]>(task.labelIds);
   const [busy, setBusy] = useState(false);
+
+  // Load the chosen project's sections; clear the section if it no longer fits.
+  useEffect(() => {
+    if (!projectId) {
+      setSections([]);
+      return;
+    }
+    let alive = true;
+    void api.listSections(projectId).then((ss) => {
+      if (!alive) return;
+      setSections(ss);
+      setSectionId((cur) => (ss.some((s) => s.id === cur) ? cur : ''));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
 
   function toggleLabel(id: string) {
     setLabelIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
@@ -45,6 +64,7 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
         dueDate: due ? new Date(due).toISOString() : null,
         deadline: deadline || null,
         projectId: projectId || undefined,
+        sectionId: sectionId || null,
         labelIds,
       });
       onSaved();
@@ -107,6 +127,22 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
               ))}
             </select>
           </Field>
+          {sections.length > 0 && (
+            <Field label={t('section.name')}>
+              <select
+                value={sectionId}
+                onChange={(e) => setSectionId(e.target.value)}
+                className="w-full rounded-md border border-line px-2 py-1.5 outline-none focus:border-brand"
+              >
+                <option value="">{t('section.none')}</option>
+                {sections.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field label="Due date">
             <input
               type="datetime-local"

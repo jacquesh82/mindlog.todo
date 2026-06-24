@@ -220,6 +220,51 @@ describe('tasks', () => {
     expect(after.status).toBe(404);
   });
 
+  it('assigns labels to a task and returns them, replacing on update', async () => {
+    const { accessToken } = await registerUser('tasklabels@ex.com');
+    const home = await request(app).post('/api/v1/labels').set(auth(accessToken)).send({ name: 'home' });
+    const urgent = await request(app)
+      .post('/api/v1/labels')
+      .set(auth(accessToken))
+      .send({ name: 'urgent' });
+
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'tagged', labelIds: [home.body.id, urgent.body.id] });
+    expect(created.body.labelIds.sort()).toEqual([home.body.id, urgent.body.id].sort());
+
+    // Replacing the set keeps only the given labels.
+    const patched = await request(app)
+      .patch(`/api/v1/tasks/${created.body.id}`)
+      .set(auth(accessToken))
+      .send({ labelIds: [home.body.id] });
+    expect(patched.body.labelIds).toEqual([home.body.id]);
+
+    // Listing returns labelIds too.
+    const list = await request(app).get('/api/v1/tasks').set(auth(accessToken));
+    expect(list.body[0].labelIds).toEqual([home.body.id]);
+
+    // Deleting a label removes it from the task (cascade).
+    await request(app).delete(`/api/v1/labels/${home.body.id}`).set(auth(accessToken));
+    const after = await request(app).get(`/api/v1/tasks/${created.body.id}`).set(auth(accessToken));
+    expect(after.body.labelIds).toEqual([]);
+  });
+
+  it('rejects assigning a label the user does not own', async () => {
+    const a = await registerUser('lblowner@ex.com');
+    const label = await request(app)
+      .post('/api/v1/labels')
+      .set(auth(a.accessToken))
+      .send({ name: 'mine' });
+    const b = await registerUser('lblthief@ex.com');
+    const res = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(b.accessToken))
+      .send({ title: 'x', labelIds: [label.body.id] });
+    expect(res.status).toBe(400);
+  });
+
   it('nests sub-tasks and returns a tree', async () => {
     const { accessToken } = await registerUser('tree@ex.com');
     const root = await request(app)

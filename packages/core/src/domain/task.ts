@@ -34,6 +34,7 @@ export const taskCreateSchema = z.object({
   parentId: z.uuid().optional(),
   projectId: z.uuid().optional(),
   sectionId: z.uuid().optional(),
+  labelIds: z.array(z.uuid()).optional(),
   position: z.number().int().min(0).optional(),
 });
 export type TaskCreateInput = z.infer<typeof taskCreateSchema>;
@@ -50,6 +51,7 @@ export const taskUpdateSchema = z.object({
   parentId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   sectionId: z.uuid().nullable().optional(),
+  labelIds: z.array(z.uuid()).optional(),
   position: z.number().int().min(0).optional(),
 });
 export type TaskUpdateInput = z.infer<typeof taskUpdateSchema>;
@@ -95,6 +97,7 @@ export interface Task {
   priority: number;
   progress: number;
   position: number;
+  labelIds: string[];
   createdAt: string;
   updatedAt: string;
 }

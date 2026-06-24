@@ -265,6 +265,23 @@ describe('tasks', () => {
     expect(res.status).toBe(400);
   });
 
+  it('round-trips a deadline + duration and clears them with null', async () => {
+    const { accessToken } = await registerUser('dates@ex.com');
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'dated', deadline: '2026-07-15', durationMinutes: 90 });
+    expect(created.body.deadline).toBe('2026-07-15');
+    expect(created.body.durationMinutes).toBe(90);
+
+    const cleared = await request(app)
+      .patch(`/api/v1/tasks/${created.body.id}`)
+      .set(auth(accessToken))
+      .send({ deadline: null, durationMinutes: null });
+    expect(cleared.body.deadline).toBeNull();
+    expect(cleared.body.durationMinutes).toBeNull();
+  });
+
   it('nests sub-tasks and returns a tree', async () => {
     const { accessToken } = await registerUser('tree@ex.com');
     const root = await request(app)

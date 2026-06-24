@@ -16,6 +16,11 @@ const prioritySchema = z.coerce
   .min(TASK_PRIORITY_MIN)
   .max(TASK_PRIORITY_MAX);
 
+/** A calendar date with no time component, e.g. a deadline. */
+const dateOnlySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be a YYYY-MM-DD date');
+
 /** Parse a query-string flag without the `z.coerce.boolean()` "false"->true trap. */
 const boolish = z.preprocess(
   (v) => v === true || v === 'true' || v === '1',
@@ -28,6 +33,8 @@ export const taskCreateSchema = z.object({
   description: z.string().max(10_000).optional(),
   assignee: z.string().max(200).optional(),
   dueDate: z.coerce.date().optional(),
+  deadline: dateOnlySchema.optional(),
+  durationMinutes: z.number().int().positive().optional(),
   status: z.enum(TASK_STATUSES).optional(),
   priority: prioritySchema.optional(),
   progress: z.number().int().min(0).max(100).optional(),
@@ -45,6 +52,8 @@ export const taskUpdateSchema = z.object({
   description: z.string().max(10_000).nullable().optional(),
   assignee: z.string().max(200).nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
+  deadline: dateOnlySchema.nullable().optional(),
+  durationMinutes: z.number().int().positive().nullable().optional(),
   status: z.enum(TASK_STATUSES).optional(),
   priority: prioritySchema.optional(),
   progress: z.number().int().min(0).max(100).optional(),
@@ -93,6 +102,8 @@ export interface Task {
   description: string | null;
   assignee: string | null;
   dueDate: string | null;
+  deadline: string | null;
+  durationMinutes: number | null;
   status: TaskStatus;
   priority: number;
   progress: number;

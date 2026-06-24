@@ -172,6 +172,19 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS task_labels_label_idx ON task_labels (label_id);
       `,
     },
+    {
+      // Rich dates (Todoist-accurate): `due_date` stays the scheduled date that
+      // drives Today/Upcoming; `deadline` is a separate hard date; `duration`
+      // is the length of the calendar slot.
+      id: '007_task_dates',
+      sql: /* sql */ `
+        ALTER TABLE tasks
+          ADD COLUMN IF NOT EXISTS deadline DATE,
+          ADD COLUMN IF NOT EXISTS duration_minutes INT
+            CHECK (duration_minutes IS NULL OR duration_minutes > 0);
+        CREATE INDEX IF NOT EXISTS tasks_deadline_idx ON tasks (user_id, deadline);
+      `,
+    },
   ];
 }
 

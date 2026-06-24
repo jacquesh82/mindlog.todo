@@ -210,6 +210,25 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS filters_user_idx ON filters (user_id);
       `,
     },
+    {
+      // AI activity log: every generative call (RAG "ask") records its prompt,
+      // response and token usage for transparency and cost tracking.
+      id: '010_ai_logs',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS ai_logs (
+          id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          kind          TEXT NOT NULL,
+          model         TEXT,
+          prompt        TEXT NOT NULL,
+          response      TEXT,
+          input_tokens  INT NOT NULL DEFAULT 0,
+          output_tokens INT NOT NULL DEFAULT 0,
+          created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ai_logs_user_idx ON ai_logs (user_id, created_at DESC);
+      `,
+    },
   ];
 }
 

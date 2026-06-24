@@ -21,5 +21,8 @@
     "dev:web": "npm run dev -w @mindlog/web",
     "migrate": "npm run migrate -w @mindlog/core",
     "test": "npm run test -w @mindlog/core && npm run test -w @mindlog/server"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
   }
 }

@@ -28,7 +28,7 @@ export function SortBar({ sort, onSort, showCompleted, onToggleCompleted }: Prop
         <select
           value={sort}
           onChange={(e) => onSort(e.target.value as SortMode)}
-          className="rounded-md border border-line px-2 py-1 text-ink outline-none focus:border-brand"
+          className="rounded-md border border-line bg-surface px-2 py-1 text-ink outline-none focus:border-brand"
         >
           {SORTS.map((s) => (
             <option key={s} value={s}>

@@ -57,6 +57,15 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
   async function setViewMode(next: ProjectViewMode) {
     setMode(next);
     await api.updateProject(project.id, { viewMode: next });
+    // A board needs columns — seed default sections the first time.
+    if (next === 'board' && sections.length === 0) {
+      await Promise.all([
+        api.createSection(project.id, t('section.todo'), 0),
+        api.createSection(project.id, t('section.doing'), 1),
+        api.createSection(project.id, t('section.done'), 2),
+      ]);
+      reload();
+    }
   }
 
   async function addSection() {

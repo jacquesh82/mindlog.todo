@@ -132,7 +132,14 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
           )}
         </Section>
 
-        <Section title={t('nav.filtersLabels')}>
+        <Section
+          title={t('nav.filters')}
+          action={
+            <button className="text-muted hover:text-brand" onClick={() => setFilterModal('create')} title={t('filter.add')}>
+              ＋
+            </button>
+          }
+        >
           {filters.map((f) => (
             <EditableRow
               key={f.id}
@@ -144,6 +151,21 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
               onEdit={() => setFilterModal(f)}
             />
           ))}
+          {filters.length === 0 && (
+            <button onClick={() => setFilterModal('create')} className="px-2 py-1.5 text-sm text-muted hover:text-brand">
+              ＋ {t('filter.add')}
+            </button>
+          )}
+        </Section>
+
+        <Section
+          title={t('nav.labels')}
+          action={
+            <button className="text-muted hover:text-brand" onClick={() => setLabelModal('create')} title={t('label.add')}>
+              ＋
+            </button>
+          }
+        >
           {labels.map((l) => (
             <EditableRow
               key={l.id}
@@ -155,14 +177,11 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
               onEdit={() => setLabelModal(l)}
             />
           ))}
-          <div className="mt-1 flex gap-3 px-2 text-xs text-muted">
-            <button onClick={() => setFilterModal('create')} className="hover:text-brand">
-              ＋ {t('filter.add')}
-            </button>
-            <button onClick={() => setLabelModal('create')} className="hover:text-brand">
+          {labels.length === 0 && (
+            <button onClick={() => setLabelModal('create')} className="px-2 py-1.5 text-sm text-muted hover:text-brand">
               ＋ {t('label.add')}
             </button>
-          </div>
+          )}
         </Section>
       </nav>
 

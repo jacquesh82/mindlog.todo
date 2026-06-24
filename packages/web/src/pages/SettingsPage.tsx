@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { useI18n } from '../i18n';
-import type { AiLog, AiUsage, ApiKey } from '../types';
+import { useI18n, LANGS, type Lang } from '../i18n';
+import { applyTheme, getInitialTheme, type Theme } from '../theme';
+import type { AiLog, AiUsage, ApiKey, User } from '../types';
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -138,11 +139,86 @@ function Stat({ label, value, highlight }: { label: string; value: number; highl
   );
 }
 
+function AccountCard() {
+  const { t } = useI18n();
+  const [me, setMe] = useState<User | null>(null);
+  useEffect(() => {
+    void api.me().then(setMe);
+  }, []);
+  if (!me) return null;
+  return (
+    <Card title={`👤 ${t('settings.account')}`}>
+      <dl className="space-y-1 text-sm">
+        <Row label={t('settings.name')} value={me.displayName ?? '—'} />
+        <Row label={t('settings.email')} value={me.email} />
+        <Row label={t('settings.memberSince')} value={new Date(me.createdAt).toLocaleDateString()} />
+        <Row label={t('settings.auth')} value={me.googleSub ? 'Google' : t('settings.password')} />
+      </dl>
+    </Card>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-ink">{value}</dd>
+    </div>
+  );
+}
+
+function AppearanceCard() {
+  const { t, lang, setLang } = useI18n();
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+  function pickTheme(next: Theme) {
+    applyTheme(next);
+    setTheme(next);
+  }
+
+  return (
+    <Card title={`🎨 ${t('settings.appearance')}`}>
+      <div className="space-y-4 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-muted">{t('settings.theme')}</span>
+          <div className="flex gap-1">
+            {(['light', 'dark'] as Theme[]).map((opt) => (
+              <button
+                key={opt}
+                onClick={() => pickTheme(opt)}
+                className={`rounded-md border px-3 py-1 ${theme === opt ? 'border-brand bg-brand-soft text-brand' : 'border-line text-ink'}`}
+              >
+                {opt === 'light' ? `☀ ${t('settings.light')}` : `🌙 ${t('settings.dark')}`}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted">{t('settings.language')}</span>
+          <div className="flex gap-1">
+            {LANGS.map((l) => (
+              <button
+                key={l}
+                onClick={() => setLang(l as Lang)}
+                className={`rounded-md border px-3 py-1 uppercase ${lang === l ? 'border-brand bg-brand-soft text-brand' : 'border-line text-ink'}`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   const { t } = useI18n();
   return (
     <div className="mx-auto w-full max-w-3xl px-8 py-8">
       <h1 className="mb-4 text-xl font-bold text-ink">{t('nav.settings')}</h1>
+      <AccountCard />
+      <AppearanceCard />
       <AiActivityCard />
       <ApiKeysCard />
     </div>

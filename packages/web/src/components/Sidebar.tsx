@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n, type Lang } from '../i18n';
 import type { Filter, Karma, Label, Project } from '../types';
 import type { View } from '../app/view';
+import { ProjectModal } from './ProjectModal';
 
 interface Props {
   projects: Project[];
@@ -51,20 +51,12 @@ function Item({
 export function Sidebar({ projects, labels, filters, karma, view, onSelect, onReload }: Props) {
   const { t, lang, setLang } = useI18n();
   const { user, logout } = useAuth();
-  const [adding, setAdding] = useState(false);
-  const [name, setName] = useState('');
+  // null = closed, 'create' = new project, Project = edit that project.
+  const [modal, setModal] = useState<'create' | Project | null>(null);
 
   const inbox = projects.find((p) => p.isInbox);
   const realProjects = projects.filter((p) => !p.isInbox);
   const favorites = projects.filter((p) => p.isFavorite);
-
-  async function addProject() {
-    if (!name.trim()) return;
-    await api.createProject({ name: name.trim() });
-    setName('');
-    setAdding(false);
-    onReload();
-  }
 
   const is = (k: View['kind'], id?: string) =>
     view.kind === k && (id === undefined || (view as { id?: string }).id === id);
@@ -72,7 +64,10 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-sidebar">
       <div className="flex items-center justify-between px-4 py-3">
-        <span className="font-semibold text-brand">{t('app.name')}</span>
+        <span className="flex items-center gap-2 font-semibold text-brand">
+          <img src="/milo.svg" alt="Milo" className="h-6 w-6" />
+          {t('app.name')}
+        </span>
         <div className="flex items-center gap-2 text-sm">
           <button
             className="text-muted hover:text-ink"
@@ -106,25 +101,25 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
         <Section
           title={t('nav.projects')}
           action={
-            <button className="text-muted hover:text-brand" onClick={() => setAdding((v) => !v)} title={t('project.add')}>
+            <button className="text-muted hover:text-brand" onClick={() => setModal('create')} title={t('project.add')}>
               ＋
             </button>
           }
         >
-          {adding && (
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && void addProject()}
-              onBlur={() => setAdding(false)}
-              placeholder={t('project.name')}
-              className="mb-1 w-full rounded border border-line px-2 py-1 text-sm outline-none focus:border-brand"
-            />
-          )}
           {realProjects.map((p) => (
-            <Item key={p.id} active={is('project', p.id)} icon="#" color={p.color} label={p.name} onClick={() => onSelect({ kind: 'project', id: p.id })} />
+            <ProjectRow
+              key={p.id}
+              project={p}
+              active={is('project', p.id)}
+              onOpen={() => onSelect({ kind: 'project', id: p.id })}
+              onEdit={() => setModal(p)}
+            />
           ))}
+          {realProjects.length === 0 && (
+            <button onClick={() => setModal('create')} className="px-2 py-1.5 text-sm text-muted hover:text-brand">
+              ＋ {t('project.add')}
+            </button>
+          )}
         </Section>
 
         {labels.length > 0 && (
@@ -156,7 +151,50 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
           {t('common.logout')}
         </button>
       </div>
+
+      {modal !== null && (
+        <ProjectModal
+          project={modal === 'create' ? undefined : modal}
+          onClose={() => setModal(null)}
+          onSaved={onReload}
+        />
+      )}
     </aside>
+  );
+}
+
+/** A project nav row with a hover "edit" affordance (avoids nested buttons). */
+function ProjectRow({
+  project,
+  active,
+  onOpen,
+  onEdit,
+}: {
+  project: Project;
+  active: boolean;
+  onOpen: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="group relative flex items-center">
+      <button
+        onClick={onOpen}
+        className={`flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition ${
+          active ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'
+        }`}
+      >
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color ?? '#808080' }} />
+        <span className="flex-1 truncate">{project.name}</span>
+        {project.isFavorite && <span className="text-xs">★</span>}
+      </button>
+      <button
+        onClick={onEdit}
+        title="Edit"
+        className="absolute right-1 opacity-0 transition group-hover:opacity-100 px-1 text-muted hover:text-brand"
+      >
+        ⋯
+      </button>
+    </div>
   );
 }
 

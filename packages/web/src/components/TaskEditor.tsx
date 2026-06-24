@@ -55,7 +55,11 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-24" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-24"
+      onClick={onClose}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+    >
       <div
         className="w-full max-w-lg rounded-xl border border-line bg-surface p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}

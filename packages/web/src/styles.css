@@ -54,7 +54,10 @@ body {
   color: var(--text);
 }
 
-button {
+/* Legacy element styles, scoped to the pages not yet migrated to Tailwind
+   (login + settings). Bare `button {}` rules would otherwise win over Tailwind's
+   layered utilities and repaint the new UI. */
+.legacy button {
   cursor: pointer;
   border: 1px solid var(--border);
   background: var(--accent);
@@ -63,15 +66,15 @@ button {
   border-radius: 8px;
   font-size: 0.9rem;
 }
-button.link {
+.legacy button.link {
   background: none;
   border: none;
   color: var(--accent);
   padding: 0.2rem 0.4rem;
 }
-button.link.danger { color: var(--danger); }
-button.active { outline: 2px solid var(--accent); }
-button.icon-btn {
+.legacy button.link.danger { color: var(--danger); }
+.legacy button.active { outline: 2px solid var(--accent); }
+.legacy button.icon-btn {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -82,7 +85,7 @@ button.icon-btn {
 .login-shell { display: grid; gap: 0.6rem; justify-items: end; }
 .login-topbar { display: flex; }
 
-input, textarea, select {
+.legacy input, .legacy textarea, .legacy select {
   background: var(--panel-2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -90,7 +93,7 @@ input, textarea, select {
   padding: 0.5rem 0.6rem;
   font: inherit;
 }
-textarea { width: 100%; min-height: 3rem; }
+.legacy textarea { width: 100%; min-height: 3rem; }
 
 .center { min-height: 100vh; display: grid; place-items: center; }
 .muted { color: var(--muted); }
@@ -129,7 +132,7 @@ textarea { width: 100%; min-height: 3rem; }
 .app header h1 { font-size: 1.1rem; margin: 0; }
 .app header nav { display: flex; gap: 0.5rem; }
 .app header .user { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
-main { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
+.app main { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
 
 .tasks-page { display: grid; grid-template-columns: 1fr 320px; gap: 1.2rem; align-items: start; }
 @media (max-width: 820px) { .tasks-page { grid-template-columns: 1fr; } }

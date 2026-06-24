@@ -35,7 +35,7 @@ export function App() {
   if (loading) return <div className="flex h-screen items-center justify-center text-muted">{t('common.loading')}</div>;
   if (!user)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
+      <div className="legacy flex min-h-screen items-center justify-center bg-[var(--bg)]">
         <div className="login-shell">
           <LoginPage />
         </div>
@@ -54,7 +54,7 @@ export function App() {
       />
       <main className="flex-1 overflow-y-auto">
         {view.kind === 'settings' ? (
-          <div className="mx-auto w-full max-w-3xl px-8 py-8">
+          <div className="legacy mx-auto w-full max-w-3xl px-8 py-8">
             <ApiKeysPage />
           </div>
         ) : (

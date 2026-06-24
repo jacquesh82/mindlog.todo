@@ -1,13 +1,14 @@
 import type { Label, LabelUpdateInput } from '../domain/label.js';
 import { getPool } from '../db/pool.js';
 
-const COLS = `id, user_id, name, color, created_at, updated_at`;
+const COLS = `id, user_id, name, color, is_favorite, created_at, updated_at`;
 
 interface Row {
   id: string;
   user_id: string;
   name: string;
   color: string | null;
+  is_favorite: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -18,6 +19,7 @@ function mapRow(r: Row): Label {
     userId: r.user_id,
     name: r.name,
     color: r.color,
+    isFavorite: r.is_favorite,
     createdAt: r.created_at.toISOString(),
     updatedAt: r.updated_at.toISOString(),
   };
@@ -27,10 +29,11 @@ export async function insert(
   userId: string,
   name: string,
   color: string | null,
+  isFavorite = false,
 ): Promise<Label> {
   const { rows } = await getPool().query<Row>(
-    `INSERT INTO labels (user_id, name, color) VALUES ($1,$2,$3) RETURNING ${COLS}`,
-    [userId, name, color],
+    `INSERT INTO labels (user_id, name, color, is_favorite) VALUES ($1,$2,$3,$4) RETURNING ${COLS}`,
+    [userId, name, color, isFavorite],
   );
   return mapRow(rows[0]!);
 }
@@ -85,6 +88,10 @@ export async function update(
   if (patch.color !== undefined) {
     sets.push(`color = $${i++}`);
     vals.push(patch.color);
+  }
+  if (patch.isFavorite !== undefined) {
+    sets.push(`is_favorite = $${i++}`);
+    vals.push(patch.isFavorite);
   }
   sets.push('updated_at = now()');
   const { rows } = await getPool().query<Row>(

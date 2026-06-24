@@ -7,12 +7,14 @@ const colorSchema = z
 export const labelCreateSchema = z.object({
   name: z.string().min(1).max(100),
   color: colorSchema.optional(),
+  isFavorite: z.boolean().optional(),
 });
 export type LabelCreateInput = z.infer<typeof labelCreateSchema>;
 
 export const labelUpdateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   color: colorSchema.nullable().optional(),
+  isFavorite: z.boolean().optional(),
 });
 export type LabelUpdateInput = z.infer<typeof labelUpdateSchema>;
 
@@ -21,6 +23,7 @@ export interface Label {
   userId: string;
   name: string;
   color: string | null;
+  isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
 }

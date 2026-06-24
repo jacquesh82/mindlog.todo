@@ -60,7 +60,9 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
 
   const inbox = projects.find((p) => p.isInbox);
   const realProjects = projects.filter((p) => !p.isInbox);
-  const favorites = projects.filter((p) => p.isFavorite);
+  const favProjects = projects.filter((p) => p.isFavorite);
+  const favLabels = labels.filter((l) => l.isFavorite);
+  const hasFavorites = favProjects.length > 0 || favLabels.length > 0;
 
   const is = (k: View['kind'], id?: string) =>
     view.kind === k && (id === undefined || (view as { id?: string }).id === id);
@@ -95,10 +97,13 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
         )}
         <Item active={is('completed')} icon="✓" label={t('nav.completed')} onClick={() => onSelect({ kind: 'completed' })} />
 
-        {favorites.length > 0 && (
+        {hasFavorites && (
           <Section title={t('nav.favorites')}>
-            {favorites.map((p) => (
+            {favProjects.map((p) => (
               <Item key={p.id} active={is('project', p.id)} icon="#" color={p.color} label={p.name} onClick={() => onSelect({ kind: 'project', id: p.id })} />
+            ))}
+            {favLabels.map((l) => (
+              <Item key={l.id} active={is('label', l.id)} icon="@" color={l.color} label={l.name} onClick={() => onSelect({ kind: 'label', id: l.id })} />
             ))}
           </Section>
         )}

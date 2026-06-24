@@ -224,10 +224,10 @@ export const api = {
   listLabels(): Promise<Label[]> {
     return request<Label[]>('/api/v1/labels');
   },
-  createLabel(name: string, color?: string | null): Promise<Label> {
-    return request<Label>('/api/v1/labels', { method: 'POST', body: JSON.stringify({ name, color }) });
+  createLabel(name: string, color?: string | null, isFavorite?: boolean): Promise<Label> {
+    return request<Label>('/api/v1/labels', { method: 'POST', body: JSON.stringify({ name, color, isFavorite }) });
   },
-  updateLabel(id: string, patch: { name?: string; color?: string | null }): Promise<Label> {
+  updateLabel(id: string, patch: { name?: string; color?: string | null; isFavorite?: boolean }): Promise<Label> {
     return request<Label>(`/api/v1/labels/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
   },
   deleteLabel(id: string): Promise<void> {

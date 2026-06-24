@@ -3,6 +3,7 @@ import {
   taskAskSchema,
   taskCreateSchema,
   taskListQuerySchema,
+  taskQuickAddSchema,
   taskSearchSchema,
   taskService,
   taskUpdateSchema,
@@ -23,6 +24,16 @@ tasksRouter.get('/', async (req, res) => {
 });
 
 // Static sub-paths must be declared before the dynamic ":id" routes.
+tasksRouter.post('/quickadd', async (req, res) => {
+  const { text } = taskQuickAddSchema.parse(req.body);
+  res.status(201).json(await taskService.quickAddTask(userId(req), text));
+});
+
+tasksRouter.post('/parse', async (req, res) => {
+  const { text } = taskQuickAddSchema.parse(req.body);
+  res.json(await taskService.previewQuickAdd(userId(req), text));
+});
+
 tasksRouter.post('/search', async (req, res) => {
   res.json(await taskService.searchTasks(userId(req), taskSearchSchema.parse(req.body)));
 });

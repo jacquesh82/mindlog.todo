@@ -26,6 +26,17 @@ export function createMcpServer(userId: string): McpServer {
   const server = new McpServer({ name: 'mindlog-todo', version: '0.0.0' });
 
   server.registerTool(
+    'task_quick_add',
+    {
+      title: 'Quick add task',
+      description:
+        'Create a task from one natural-language line, e.g. "Submit report tomorrow 5pm #Work @urgent p1 every week". Resolves #project and @label by name (creating missing labels).',
+      inputSchema: { text: z.string() },
+    },
+    async ({ text }) => jsonResult(await taskService.quickAddTask(userId, text)),
+  );
+
+  server.registerTool(
     'task_create',
     {
       title: 'Create task',

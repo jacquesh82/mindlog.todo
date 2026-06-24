@@ -88,6 +88,11 @@ export const taskSearchSchema = z.object({
 });
 export type TaskSearchInput = z.infer<typeof taskSearchSchema>;
 
+export const taskQuickAddSchema = z.object({
+  text: z.string().min(1).max(1000),
+});
+export type TaskQuickAddInput = z.infer<typeof taskQuickAddSchema>;
+
 export const taskAskSchema = z.object({
   question: z.string().min(1),
   k: z.coerce.number().int().min(1).max(20).default(8),

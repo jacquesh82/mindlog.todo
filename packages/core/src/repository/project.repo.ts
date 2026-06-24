@@ -84,6 +84,17 @@ export async function list(userId: string, includeArchived = false): Promise<Pro
   return rows.map(mapRow);
 }
 
+/** Find a non-archived project by name (case-insensitive). */
+export async function findByName(userId: string, name: string): Promise<Project | null> {
+  const { rows } = await getPool().query<Row>(
+    `SELECT ${COLS} FROM projects
+     WHERE user_id = $1 AND archived_at IS NULL AND lower(name) = lower($2)
+     ORDER BY created_at LIMIT 1`,
+    [userId, name],
+  );
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
 /** The user's Inbox project, or null if it has not been provisioned yet. */
 export async function getInbox(userId: string): Promise<Project | null> {
   const { rows } = await getPool().query<Row>(

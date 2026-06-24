@@ -14,6 +14,7 @@ export function LabelModal({ label, onClose, onSaved }: Props) {
   const { t } = useI18n();
   const [name, setName] = useState(label?.name ?? '');
   const [color, setColor] = useState(label?.color ?? PROJECT_COLORS[10]!);
+  const [favorite, setFavorite] = useState(label?.isFavorite ?? false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -22,8 +23,8 @@ export function LabelModal({ label, onClose, onSaved }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      if (label) await api.updateLabel(label.id, { name: name.trim(), color });
-      else await api.createLabel(name.trim(), color);
+      if (label) await api.updateLabel(label.id, { name: name.trim(), color, isFavorite: favorite });
+      else await api.createLabel(name.trim(), color, favorite);
       onSaved();
       onClose();
     } catch (e) {
@@ -70,6 +71,10 @@ export function LabelModal({ label, onClose, onSaved }: Props) {
             />
           ))}
         </div>
+        <label className="mt-3 flex items-center gap-2 text-sm text-ink">
+          <input type="checkbox" checked={favorite} onChange={(e) => setFavorite(e.target.checked)} />
+          {t('project.favorite')}
+        </label>
         {err && <p className="mt-2 text-xs text-[var(--color-p1)]">{err}</p>}
         <div className="mt-4 flex items-center justify-between">
           {label ? (

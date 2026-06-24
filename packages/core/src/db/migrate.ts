@@ -249,6 +249,13 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS karma_events_user_idx ON karma_events (user_id, created_at);
       `,
     },
+    {
+      // Labels can be marked as favourites (pinned in the sidebar Favorites).
+      id: '012_label_favorite',
+      sql: /* sql */ `
+        ALTER TABLE labels ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT false;
+      `,
+    },
   ];
 }
 

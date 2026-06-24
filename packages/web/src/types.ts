@@ -60,6 +60,7 @@ export interface Label {
   userId: string;
   name: string;
   color: string | null;
+  isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
 }

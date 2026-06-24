@@ -11,7 +11,7 @@ function isUniqueViolation(err: unknown): boolean {
 
 export async function createLabel(userId: string, input: LabelCreateInput): Promise<Label> {
   try {
-    return await repo.insert(userId, input.name, input.color ?? null);
+    return await repo.insert(userId, input.name, input.color ?? null, input.isFavorite ?? false);
   } catch (err) {
     if (isUniqueViolation(err)) throw Conflict('A label with that name already exists');
     throw err;

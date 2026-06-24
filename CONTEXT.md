@@ -4,24 +4,28 @@
 branch `feat/todoist-parity`. Commit per feature + tests; verify UI via Docker screenshots.
 
 **Key Decisions**:
-- UI: Tailwind v4 + i18n (FR/EN) + mindlog red (#db4c3f); status hybrid.
-- Legacy element CSS scoped under `.legacy` (login only) so Tailwind drives the app.
+- UI: Tailwind v4 + i18n (FR/EN) + mindlog red (#db4c3f) + Milo logo; light/dark via
+  @theme token overrides. Status hybrid.
 - `due_date` = scheduled; `deadline` (date-only) + `duration` separate.
 - Integrations beyond API/MCP/webhooks → external plugins (later).
 
 **Done & verified live**:
-- Phase 1 data model (priority, projects/Inbox, sections, labels, deadline/duration,
-  recurrence) — migrations 002–008.
-- Phase 2 NL Quick Add (chrono EN+FR). Phase 3 view filters + filter query language
-  + saved filters (009). Phase 6 completed_at + Karma + archive (011).
-- AI activity log + token usage (010); Settings page (Tailwind, fixes theme);
-  task editor modal; Search & Ask AI view; Karma sidebar badge.
-- Tests: core 65 + server 55, all green. App at https://todo.mindlog.localhost:9443.
+- Phases 1–3 + 6 (data model, NL Quick Add, filters + filter query language,
+  karma/archive). Migrations 002–012.
+- AI activity log + token usage (010). Settings (account, appearance light/dark,
+  AI logs, API keys). Task editor (priority/dates/labels/project/section).
+- UI polish: project view sections + list/Board(Kanban) + sort modes
+  (manual/priority/date/name) + show-completed toggle; sub-tasks (nested tree,
+  add-subtask, inherit parent project); label & filter & project create/edit modals
+  with colour palette; project & label favourites; completed archive view;
+  Search & Ask AI view.
+- Bug fixes: Quick Add bilingual date parsing (keeps tags, full FR dates),
+  sub-task project inheritance, settings dark-theme glitch.
+- Tests: core 67 + server 56, all green. App at https://todo.mindlog.localhost:9443.
 
-**Next Steps (remaining plan)**:
-- UI polish: project view sections/board/calendar, label & filter & section creation
-  UI, completed-archive view, project context-menu (rename/color/favorite/delete).
-- Phase 4 reminders + PWA/Web Push; Phase 5 collaboration (sharing/assign/comments,
-  needs project-membership auth refactor); Phase 7 templates; Phase 8 webhooks +
-  public API/MCP polish; Phase 9 PWA/offline/real-time.
-- French recurrence ("tous les lundis") still parses English only.
+**Next Steps**:
+- Phase 4: reminders (table + scheduler/poll + in-app/PWA Web Push) — STARTED then
+  reverted (migration draft removed); redo cleanly. Then PWA manifest + service worker.
+- Phase 5 collaboration (sharing/assign/comments — project-membership auth refactor);
+  Phase 7 templates; Phase 8 webhooks + API/MCP polish; Phase 9 PWA/offline.
+- Drag-and-drop between board columns; French recurrence ("tous les lundis").

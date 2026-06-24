@@ -113,6 +113,22 @@ function migrations(): Migration[] {
           ON CONFLICT DO NOTHING;
       `,
     },
+    {
+      // Sections: ordered sub-divisions within a project; double as the columns
+      // of the board (Kanban) view.
+      id: '004_sections',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS sections (
+          id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          name       TEXT NOT NULL,
+          position   INT NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS sections_project_idx ON sections (project_id);
+      `,
+    },
   ];
 }
 

@@ -17,6 +17,19 @@
   --color-p4: #808080;
 }
 
+/* Dark mode: override the @theme tokens (higher specificity than :root) so all
+   Tailwind utilities like bg-surface / text-ink follow the theme at runtime. */
+:root[data-theme='dark'] {
+  --color-brand: #e35d50;
+  --color-brand-hover: #f06a5d;
+  --color-brand-soft: #3a2320;
+  --color-ink: #e6e8ec;
+  --color-muted: #8b93a1;
+  --color-line: #2a2f3a;
+  --color-surface: #181b22;
+  --color-sidebar: #14171d;
+}
+
 /* Light theme (default) */
 :root {
   --bg: #f6f7f9;

@@ -118,7 +118,7 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="w-full rounded-md border border-line px-2 py-1.5 outline-none focus:border-brand"
+              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-brand"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -132,7 +132,7 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
               <select
                 value={sectionId}
                 onChange={(e) => setSectionId(e.target.value)}
-                className="w-full rounded-md border border-line px-2 py-1.5 outline-none focus:border-brand"
+                className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-brand"
               >
                 <option value="">{t('section.none')}</option>
                 {sections.map((s) => (
@@ -148,7 +148,7 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
               type="datetime-local"
               value={due}
               onChange={(e) => setDue(e.target.value)}
-              className="w-full rounded-md border border-line px-2 py-1.5 outline-none focus:border-brand"
+              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-brand"
             />
           </Field>
           <Field label="Deadline">
@@ -156,7 +156,7 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
               type="date"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              className="w-full rounded-md border border-line px-2 py-1.5 outline-none focus:border-brand"
+              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-brand"
             />
           </Field>
         </div>

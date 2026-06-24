@@ -282,6 +282,32 @@ describe('tasks', () => {
     expect(cleared.body.durationMinutes).toBeNull();
   });
 
+  it('normalises a recurrence rule and reschedules on completion', async () => {
+    const { accessToken } = await registerUser('recur@ex.com');
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'standup', dueDate: '2026-06-24T09:00:00Z', recurrence: 'every day' });
+    expect(created.body.recurrence).toBe('every day');
+
+    // Completing it advances the due date and keeps it open (Todoist behaviour).
+    const done = await request(app)
+      .patch(`/api/v1/tasks/${created.body.id}`)
+      .set(auth(accessToken))
+      .send({ status: 'done' });
+    expect(done.body.status).toBe('todo');
+    expect(done.body.dueDate).toBe('2026-06-25T09:00:00.000Z');
+  });
+
+  it('rejects an unrecognised recurrence rule with 400', async () => {
+    const { accessToken } = await registerUser('badrecur@ex.com');
+    const res = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'x', recurrence: 'every blursday' });
+    expect(res.status).toBe(400);
+  });
+
   it('nests sub-tasks and returns a tree', async () => {
     const { accessToken } = await registerUser('tree@ex.com');
     const root = await request(app)

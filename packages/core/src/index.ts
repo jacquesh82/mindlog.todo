@@ -6,6 +6,7 @@ export { AppError, BadRequest, Conflict, NotFound, ServiceUnavailable, Unauthori
 
 // Domain types & validation schemas
 export * from './domain/task.js';
+export * from './domain/recurrence.js';
 export * from './domain/project.js';
 export * from './domain/section.js';
 export * from './domain/label.js';

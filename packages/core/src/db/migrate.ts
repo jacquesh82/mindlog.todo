@@ -185,6 +185,14 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS tasks_deadline_idx ON tasks (user_id, deadline);
       `,
     },
+    {
+      // Recurrence: a canonical natural-language rule ("every weekday"). When a
+      // recurring task is completed its due date advances to the next occurrence.
+      id: '008_task_recurrence',
+      sql: /* sql */ `
+        ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_rule TEXT;
+      `,
+    },
   ];
 }
 

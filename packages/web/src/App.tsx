@@ -42,7 +42,14 @@ export function App() {
   if (loading) return <div className="flex h-screen items-center justify-center text-muted">{t('common.loading')}</div>;
   if (!user)
     return (
-      <div className="legacy flex min-h-screen items-center justify-center bg-[var(--bg)]">
+      <div className="legacy flex min-h-screen flex-col items-center justify-center gap-6 bg-[var(--bg)]">
+        <div className="flex flex-col items-center gap-1.5">
+          <img src="/milo.svg" alt="Milo" className="h-16 w-16" />
+          <div className="text-lg font-semibold" style={{ color: 'var(--color-brand)' }}>
+            {t('app.name')}
+          </div>
+          <div className="text-sm" style={{ color: 'var(--color-muted)' }}>{t('login.tagline')}</div>
+        </div>
         <div className="login-shell">
           <LoginPage />
         </div>

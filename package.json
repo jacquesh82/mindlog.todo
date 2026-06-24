@@ -1,0 +1,25 @@
+{
+  "name": "mindlog-todo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Task management micro-service with an MCP server, REST API and web UI, with integrated RAG.",
+  "license": "AGPL-3.0-or-later",
+  "workspaces": [
+    "packages/core",
+    "packages/server",
+    "packages/web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build -w @mindlog/core && npm run build -w @mindlog/server && npm run build -w @mindlog/web",
+    "build:server": "npm run build -w @mindlog/core && npm run build -w @mindlog/server",
+    "typecheck": "npm run typecheck -w @mindlog/core && npm run typecheck -w @mindlog/server",
+    "dev:server": "npm run dev -w @mindlog/server",
+    "dev:web": "npm run dev -w @mindlog/web",
+    "migrate": "npm run migrate -w @mindlog/core",
+    "test": "npm run test -w @mindlog/server"
+  }
+}

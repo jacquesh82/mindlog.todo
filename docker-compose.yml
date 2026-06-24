@@ -1,0 +1,65 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: mindlog
+      POSTGRES_PASSWORD: mindlog
+      POSTGRES_DB: mindlog
+    ports:
+      # Host port 5439 to avoid clashing with a local/other Postgres on 5432.
+      # Inside the compose network the API still connects to db:5432.
+      - "5439:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindlog -d mindlog"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    env_file: .env
+    environment:
+      # Inside the compose network the db is reachable as `db`.
+      DATABASE_URL: postgres://mindlog:mindlog@db:5432/mindlog
+      PORT: 8080
+      PUBLIC_URL: https://todo.mindlog.localhost
+      WEB_URL: https://todo.mindlog.localhost
+    expose:
+      - "8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # The web container is the single entry point (edge): it terminates TLS, serves
+  # the SPA and reverse-proxies /api, /mcp, /docs to the api service. Browse the
+  # app at https://todo.mindlog.localhost (*.localhost resolves to loopback).
+  # Generate the dev certificate first: `./scripts/gen-certs.sh`.
+  web:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+      args:
+        # Empty => the SPA calls same-origin /api (proxied by this nginx).
+        VITE_API_URL: ""
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

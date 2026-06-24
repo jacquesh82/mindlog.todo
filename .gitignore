@@ -1,0 +1,35 @@
+node_modules/
+dist/
+build/
+coverage/
+
+# env
+.env
+.env.local
+*.local
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# local model cache (transformers.js)
+.cache/
+models/
+
+# postgres data volume (if mounted locally)
+.pgdata/
+
+# local TLS certificates
+certs/
+
+# local dual-graph MCP state
+.dual-graph/
+
+# local compose overrides
+docker-compose.override.yml

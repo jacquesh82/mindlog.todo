@@ -8,10 +8,11 @@ interface Props {
   task: Task;
   labels: Map<string, Label>;
   onChanged: () => void;
+  onEdit: (task: Task) => void;
 }
 
 /** A single Todoist-style task row: priority check circle, title, meta chips. */
-export function TaskRow({ task, labels, onChanged }: Props) {
+export function TaskRow({ task, labels, onChanged, onEdit }: Props) {
   const { lang, t } = useI18n();
   const [busy, setBusy] = useState(false);
   const done = task.status === 'done';
@@ -62,9 +63,12 @@ export function TaskRow({ task, labels, onChanged }: Props) {
       </button>
 
       <div className="min-w-0 flex-1">
-        <div className={`text-sm leading-snug ${done ? 'text-muted line-through' : 'text-ink'}`}>
+        <button
+          onClick={() => onEdit(task)}
+          className={`block text-left text-sm leading-snug hover:text-brand ${done ? 'text-muted line-through' : 'text-ink'}`}
+        >
           {task.title}
-        </div>
+        </button>
         {task.description && (
           <div className="mt-0.5 truncate text-xs text-muted">{task.description}</div>
         )}

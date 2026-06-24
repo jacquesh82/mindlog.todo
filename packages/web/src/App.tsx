@@ -5,7 +5,7 @@ import { LoginPage } from './auth/LoginPage';
 import { MainView } from './components/MainView';
 import { Sidebar } from './components/Sidebar';
 import { useI18n } from './i18n';
-import { ApiKeysPage } from './pages/ApiKeysPage';
+import { SettingsPage } from './pages/SettingsPage';
 import type { Filter, Label, Project } from './types';
 import type { View } from './app/view';
 
@@ -54,9 +54,7 @@ export function App() {
       />
       <main className="flex-1 overflow-y-auto">
         {view.kind === 'settings' ? (
-          <div className="legacy mx-auto w-full max-w-3xl px-8 py-8">
-            <ApiKeysPage />
-          </div>
+          <SettingsPage />
         ) : (
           <MainView
             view={view}

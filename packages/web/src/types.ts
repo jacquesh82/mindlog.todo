@@ -115,3 +115,22 @@ export interface AskResult {
   answer: string;
   sources: Task[];
 }
+
+export interface AiLog {
+  id: string;
+  userId: string;
+  kind: string;
+  model: string | null;
+  prompt: string;
+  response: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  createdAt: string;
+}
+
+export interface AiUsage {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}

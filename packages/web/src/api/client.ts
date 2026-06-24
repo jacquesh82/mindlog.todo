@@ -1,4 +1,6 @@
 import type {
+  AiLog,
+  AiUsage,
   ApiKey,
   AskResult,
   AuthResult,
@@ -252,6 +254,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ question, k }),
     });
+  },
+
+  // AI activity
+  aiUsage(): Promise<AiUsage> {
+    return request<AiUsage>('/api/v1/ai/usage');
+  },
+  aiLogs(limit = 50): Promise<AiLog[]> {
+    return request<AiLog[]>(`/api/v1/ai/logs?limit=${limit}`);
   },
 
   // api keys

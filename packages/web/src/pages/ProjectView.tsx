@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { QuickAdd } from '../components/QuickAdd';
+import { SortBar } from '../components/SortBar';
 import { TaskEditor } from '../components/TaskEditor';
 import { TaskRow } from '../components/TaskRow';
 import { useI18n } from '../i18n';
+import { buildTree, sortTree, type SortMode, type TreeTask } from '../tree';
 import type { Label, Project, ProjectViewMode, Section, Task } from '../types';
 
 interface Props {
@@ -21,16 +23,18 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<ProjectViewMode>(project.viewMode);
-  const [editing, setEditing] = useState<Task | null>(null);
+  const [editing, setEditing] = useState<TreeTask | null>(null);
   const [addingSection, setAddingSection] = useState(false);
   const [sectionName, setSectionName] = useState('');
+  const [sort, setSort] = useState<SortMode>('manual');
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const labelMap = new Map(labels.map((l) => [l.id, l]));
 
   const reload = useCallback(() => {
     setLoading(true);
     Promise.all([
-      api.listTasks({ projectId: project.id, completed: 'false' }),
+      api.listTasks(showCompleted ? { projectId: project.id } : { projectId: project.id, completed: 'false' }),
       api.listSections(project.id),
     ])
       .then(([ts, ss]) => {
@@ -38,7 +42,7 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
         setSections(ss);
       })
       .finally(() => setLoading(false));
-  }, [project.id]);
+  }, [project.id, showCompleted]);
 
   useEffect(() => {
     setMode(project.viewMode);
@@ -63,10 +67,11 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
     reload();
   }
 
-  // Group tasks: the "no section" bucket first, then each section in order.
-  const groups: { id: string; section: Section | null; tasks: Task[] }[] = [
-    { id: NO_SECTION, section: null, tasks: tasks.filter((t) => !t.sectionId) },
-    ...sections.map((s) => ({ id: s.id, section: s, tasks: tasks.filter((t) => t.sectionId === s.id) })),
+  // Build the sub-task tree, sort, then group the ROOT tasks by section.
+  const roots = sortTree(buildTree(tasks), sort);
+  const groups: { id: string; section: Section | null; tasks: TreeTask[] }[] = [
+    { id: NO_SECTION, section: null, tasks: roots.filter((t) => !t.sectionId) },
+    ...sections.map((s) => ({ id: s.id, section: s, tasks: roots.filter((t) => t.sectionId === s.id) })),
   ];
 
   return (
@@ -76,16 +81,19 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
           <span className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color ?? '#808080' }} />
           {project.isInbox ? t('nav.inbox') : project.name}
         </h1>
-        <div className="flex items-center gap-1 text-sm">
-          {(['list', 'board'] as ProjectViewMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => void setViewMode(m)}
-              className={`rounded-md border px-2 py-1 ${mode === m ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted'}`}
-            >
-              {m === 'list' ? `☰ ${t('view.list')}` : `▤ ${t('view.board')}`}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 text-sm">
+          <SortBar sort={sort} onSort={setSort} showCompleted={showCompleted} onToggleCompleted={() => setShowCompleted((v) => !v)} />
+          <div className="flex items-center gap-1">
+            {(['list', 'board'] as ProjectViewMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => void setViewMode(m)}
+                className={`rounded-md border px-2 py-1 ${mode === m ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted'}`}
+              >
+                {m === 'list' ? `☰ ${t('view.list')}` : `▤ ${t('view.board')}`}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

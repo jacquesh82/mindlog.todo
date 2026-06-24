@@ -3,6 +3,8 @@ import { useAuth } from '../auth/AuthContext';
 import { useI18n, type Lang } from '../i18n';
 import type { Filter, Karma, Label, Project } from '../types';
 import type { View } from '../app/view';
+import { FilterModal } from './FilterModal';
+import { LabelModal } from './LabelModal';
 import { ProjectModal } from './ProjectModal';
 
 interface Props {
@@ -53,6 +55,8 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
   const { user, logout } = useAuth();
   // null = closed, 'create' = new project, Project = edit that project.
   const [modal, setModal] = useState<'create' | Project | null>(null);
+  const [labelModal, setLabelModal] = useState<'create' | Label | null>(null);
+  const [filterModal, setFilterModal] = useState<'create' | Filter | null>(null);
 
   const inbox = projects.find((p) => p.isInbox);
   const realProjects = projects.filter((p) => !p.isInbox);
@@ -122,16 +126,38 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
           )}
         </Section>
 
-        {labels.length > 0 && (
-          <Section title={t('nav.filtersLabels')}>
-            {filters.map((f) => (
-              <Item key={f.id} active={is('filter', f.id)} icon="🔎" color={f.color} label={f.name} onClick={() => onSelect({ kind: 'filter', id: f.id })} />
-            ))}
-            {labels.map((l) => (
-              <Item key={l.id} active={is('label', l.id)} icon="@" color={l.color} label={l.name} onClick={() => onSelect({ kind: 'label', id: l.id })} />
-            ))}
-          </Section>
-        )}
+        <Section title={t('nav.filtersLabels')}>
+          {filters.map((f) => (
+            <EditableRow
+              key={f.id}
+              active={is('filter', f.id)}
+              icon="🔎"
+              color={f.color}
+              label={f.name}
+              onOpen={() => onSelect({ kind: 'filter', id: f.id })}
+              onEdit={() => setFilterModal(f)}
+            />
+          ))}
+          {labels.map((l) => (
+            <EditableRow
+              key={l.id}
+              active={is('label', l.id)}
+              icon="@"
+              color={l.color}
+              label={l.name}
+              onOpen={() => onSelect({ kind: 'label', id: l.id })}
+              onEdit={() => setLabelModal(l)}
+            />
+          ))}
+          <div className="mt-1 flex gap-3 px-2 text-xs text-muted">
+            <button onClick={() => setFilterModal('create')} className="hover:text-brand">
+              ＋ {t('filter.add')}
+            </button>
+            <button onClick={() => setLabelModal('create')} className="hover:text-brand">
+              ＋ {t('label.add')}
+            </button>
+          </div>
+        </Section>
       </nav>
 
       {karma && (
@@ -159,7 +185,63 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
           onSaved={onReload}
         />
       )}
+      {labelModal !== null && (
+        <LabelModal
+          label={labelModal === 'create' ? undefined : labelModal}
+          onClose={() => setLabelModal(null)}
+          onSaved={onReload}
+        />
+      )}
+      {filterModal !== null && (
+        <FilterModal
+          filter={filterModal === 'create' ? undefined : filterModal}
+          onClose={() => setFilterModal(null)}
+          onSaved={onReload}
+        />
+      )}
     </aside>
+  );
+}
+
+/** A coloured nav row with a hover ⋯ edit affordance (filters, labels). */
+function EditableRow({
+  active,
+  icon,
+  color,
+  label,
+  onOpen,
+  onEdit,
+}: {
+  active: boolean;
+  icon: string;
+  color: string | null;
+  label: string;
+  onOpen: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="group relative flex items-center">
+      <button
+        onClick={onOpen}
+        className={`flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition ${
+          active ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'
+        }`}
+      >
+        {color ? (
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        ) : (
+          <span className="w-4 text-center">{icon}</span>
+        )}
+        <span className="flex-1 truncate">{label}</span>
+      </button>
+      <button
+        onClick={onEdit}
+        title="Edit"
+        className="absolute right-1 px-1 text-muted opacity-0 transition hover:text-brand group-hover:opacity-100"
+      >
+        ⋯
+      </button>
+    </div>
   );
 }
 

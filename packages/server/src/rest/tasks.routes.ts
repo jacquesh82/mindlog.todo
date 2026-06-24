@@ -1,0 +1,57 @@
+import {
+  askTasks,
+  taskAskSchema,
+  taskCreateSchema,
+  taskListQuerySchema,
+  taskSearchSchema,
+  taskService,
+  taskUpdateSchema,
+} from '@mindlog/core';
+import { Router } from 'express';
+import { requireAuth, userId } from '../middleware/auth.js';
+
+export const tasksRouter: Router = Router();
+tasksRouter.use(requireAuth);
+
+tasksRouter.post('/', async (req, res) => {
+  const task = await taskService.createTask(userId(req), taskCreateSchema.parse(req.body));
+  res.status(201).json(task);
+});
+
+tasksRouter.get('/', async (req, res) => {
+  res.json(await taskService.listTasks(userId(req), taskListQuerySchema.parse(req.query)));
+});
+
+// Static sub-paths must be declared before the dynamic ":id" routes.
+tasksRouter.post('/search', async (req, res) => {
+  res.json(await taskService.searchTasks(userId(req), taskSearchSchema.parse(req.body)));
+});
+
+tasksRouter.post('/ask', async (req, res) => {
+  res.json(await askTasks(userId(req), taskAskSchema.parse(req.body)));
+});
+
+tasksRouter.get('/:id', async (req, res) => {
+  const withChildren = req.query.withChildren !== undefined && req.query.withChildren !== 'false';
+  res.json(await taskService.getTask(userId(req), req.params.id!, { withChildren }));
+});
+
+tasksRouter.get('/:id/subtasks', async (req, res) => {
+  const q = taskListQuerySchema.parse({ ...req.query, parentId: req.params.id });
+  res.json(await taskService.listTasks(userId(req), q));
+});
+
+tasksRouter.post('/:id/subtasks', async (req, res) => {
+  const body = taskCreateSchema.parse({ ...req.body, parentId: req.params.id });
+  res.status(201).json(await taskService.createTask(userId(req), body));
+});
+
+tasksRouter.patch('/:id', async (req, res) => {
+  const task = await taskService.updateTask(userId(req), req.params.id!, taskUpdateSchema.parse(req.body));
+  res.json(task);
+});
+
+tasksRouter.delete('/:id', async (req, res) => {
+  await taskService.deleteTask(userId(req), req.params.id!);
+  res.status(204).end();
+});

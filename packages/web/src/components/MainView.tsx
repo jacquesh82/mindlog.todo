@@ -5,6 +5,7 @@ import { useI18n } from '../i18n';
 import type { Filter, Label, Project, Task } from '../types';
 import type { View } from '../app/view';
 import { buildTree, sortTree, type SortMode, type TreeTask } from '../tree';
+import { CelebrationArt, EmptyState, EmptyTasksArt } from './Illustrations';
 import { SortBar } from './SortBar';
 import { TaskRow } from './TaskRow';
 import { TaskEditor } from './TaskEditor';
@@ -114,7 +115,13 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
       {loading ? (
         <p className="mt-6 text-sm text-muted">{t('common.loading')}</p>
       ) : tree.length === 0 ? (
-        <p className="mt-10 text-center text-sm text-muted">{t('task.empty')}</p>
+        view.kind === 'completed' ? (
+          <EmptyState art={<CelebrationArt className="h-full w-full" />} title={t('empty.completed')} subtitle={t('empty.completedHint')} />
+        ) : view.kind === 'today' ? (
+          <EmptyState art={<CelebrationArt className="h-full w-full" />} title={t('empty.today')} subtitle={t('empty.todayHint')} />
+        ) : (
+          <EmptyState art={<EmptyTasksArt className="h-full w-full" />} title={t('task.empty')} subtitle={t('empty.tasksHint')} />
+        )
       ) : (
         <ul className="mt-2">
           {tree.map((task) => (

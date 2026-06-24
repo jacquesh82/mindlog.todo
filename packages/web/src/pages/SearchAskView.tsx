@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, ApiError } from '../api/client';
+import { EmptyState, SearchEmptyArt } from '../components/Illustrations';
 import { useI18n } from '../i18n';
 import type { AskResult, TaskHit } from '../types';
 
@@ -76,9 +77,11 @@ export function SearchAskView() {
         </div>
       )}
 
-      {hits && (
+      {hits && hits.length === 0 && (
+        <EmptyState art={<SearchEmptyArt className="h-full w-full" />} title={t('search.noMatch')} subtitle={t('search.noMatchHint')} />
+      )}
+      {hits && hits.length > 0 && (
         <ul className="mt-5 divide-y divide-line">
-          {hits.length === 0 && <li className="py-2 text-sm text-muted">{t('search.noMatch')}</li>}
           {hits.map((h) => (
             <li key={h.id} className="flex items-center gap-2 py-2 text-sm">
               <span className="flex-1 text-ink">{h.title}</span>

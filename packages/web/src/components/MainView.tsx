@@ -26,6 +26,7 @@ function titleFor(
   switch (view.kind) {
     case 'today': return t('nav.today');
     case 'upcoming': return t('nav.upcoming');
+    case 'completed': return t('nav.completed');
     case 'inbox': return t('nav.inbox');
     case 'project': return projects.find((p) => p.id === view.id)?.name ?? '';
     case 'label': return '@' + (labels.find((l) => l.id === view.id)?.name ?? '');
@@ -41,6 +42,8 @@ async function loadTasks(view: View): Promise<Task[]> {
       return api.listTasks({ completed: 'false', dueBefore: startOfTomorrow().toISOString() });
     case 'upcoming':
       return api.listTasks({ completed: 'false', dueAfter: startOfToday().toISOString() });
+    case 'completed':
+      return api.listTasks({ completed: 'true' });
     case 'inbox':
       return api.listTasks({ projectId: view.id, completed: 'false' });
     case 'project':
@@ -88,7 +91,7 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
         {titleFor(view, projects, labels, filters, t)}
       </h1>
 
-      {view.kind !== 'filter' && view.kind !== 'label' && (
+      {view.kind !== 'filter' && view.kind !== 'label' && view.kind !== 'completed' && (
         <QuickAdd defaultProjectId={defaultProjectId} onAdded={changed} />
       )}
 

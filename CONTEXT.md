@@ -1,28 +1,27 @@
 # CONTEXT
 
-**Current Task**: Building Todoist-parity into mindlog.todo (9-phase ROADMAP.md);
-autonomous mode, branch `feat/todoist-parity`. Commit per feature, tests for each.
+**Current Task**: Todoist-parity for mindlog.todo (9-phase ROADMAP.md); autonomous,
+branch `feat/todoist-parity`. Commit per feature + tests; verify UI via Docker screenshots.
 
 **Key Decisions**:
 - UI: Tailwind v4 + i18n (FR/EN) + mindlog red (#db4c3f); status hybrid.
-- `due_date` = scheduled date; `deadline` (date-only) + `duration` separate.
-- Legacy element CSS scoped under `.legacy` (login/settings) so Tailwind drives the app.
+- Legacy element CSS scoped under `.legacy` (login only) so Tailwind drives the app.
+- `due_date` = scheduled; `deadline` (date-only) + `duration` separate.
 - Integrations beyond API/MCP/webhooks → external plugins (later).
 
-**Done**:
-- Phase 1 (data model): priority, projects/Inbox, sections, task↔project/section,
-  labels (+assignment), deadline/duration, recurrence engine. Migrations 002–008.
-- Phase 2: natural-language Quick Add (chrono EN+FR, #project/@label/p1-4/recurrence).
-- Phase 3: view filters (today/overdue/noDate/label/completed) + filter query
-  language `(p1|p2)&@work&7 days` with saved filters (migration 009).
-- Web: Tailwind + i18n foundation, synced types/client, Todoist-look shell
-  (sidebar, Today/Upcoming/Inbox/project/label/filter views, TaskRow, Quick Add).
-  VERIFIED live in Docker via screenshot. App at https://todo.mindlog.localhost:9443.
-- Tests: core 59 + server 51, all green. ~18 commits.
+**Done & verified live**:
+- Phase 1 data model (priority, projects/Inbox, sections, labels, deadline/duration,
+  recurrence) — migrations 002–008.
+- Phase 2 NL Quick Add (chrono EN+FR). Phase 3 view filters + filter query language
+  + saved filters (009). Phase 6 completed_at + Karma + archive (011).
+- AI activity log + token usage (010); Settings page (Tailwind, fixes theme);
+  task editor modal; Search & Ask AI view; Karma sidebar badge.
+- Tests: core 65 + server 55, all green. App at https://todo.mindlog.localhost:9443.
 
-**Next Steps**:
-- UI polish: project view (sections/board/calendar), label & filter creation UI,
-  re-integrate semantic search + RAG "ask", task edit (priority/labels/dates), settings.
-- Phase 4 reminders + PWA/Web Push; Phase 5 collaboration; Phase 6 karma/archive;
-  Phase 7 templates; Phase 8 webhooks + public API/MCP polish; Phase 9 PWA/offline.
-- Recurrence in French ("tous les lundis") still parses English only.
+**Next Steps (remaining plan)**:
+- UI polish: project view sections/board/calendar, label & filter & section creation
+  UI, completed-archive view, project context-menu (rename/color/favorite/delete).
+- Phase 4 reminders + PWA/Web Push; Phase 5 collaboration (sharing/assign/comments,
+  needs project-membership auth refactor); Phase 7 templates; Phase 8 webhooks +
+  public API/MCP polish; Phase 9 PWA/offline/real-time.
+- French recurrence ("tous les lundis") still parses English only.

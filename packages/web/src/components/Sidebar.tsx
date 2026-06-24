@@ -87,6 +87,7 @@ export function Sidebar({ projects, labels, filters, view, onSelect, onReload }:
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-4">
+        <Item active={is('search')} icon="🔎" label={t('nav.search')} onClick={() => onSelect({ kind: 'search' })} />
         <Item active={is('today')} icon="📆" label={t('nav.today')} onClick={() => onSelect({ kind: 'today' })} />
         <Item active={is('upcoming')} icon="🗓" label={t('nav.upcoming')} onClick={() => onSelect({ kind: 'upcoming' })} />
         {inbox && (

@@ -5,6 +5,7 @@ import { LoginPage } from './auth/LoginPage';
 import { MainView } from './components/MainView';
 import { Sidebar } from './components/Sidebar';
 import { useI18n } from './i18n';
+import { SearchAskView } from './pages/SearchAskView';
 import { SettingsPage } from './pages/SettingsPage';
 import type { Filter, Label, Project } from './types';
 import type { View } from './app/view';
@@ -55,6 +56,8 @@ export function App() {
       <main className="flex-1 overflow-y-auto">
         {view.kind === 'settings' ? (
           <SettingsPage />
+        ) : view.kind === 'search' ? (
+          <SearchAskView />
         ) : (
           <MainView
             view={view}

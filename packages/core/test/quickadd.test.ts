@@ -47,6 +47,16 @@ describe('parseQuickAdd', () => {
     expect(r.dueDate!.getDate()).toBe(26);
   });
 
+  it('parses French date words (demain / vendredi)', () => {
+    const demain = parseQuickAdd('Appeler le médecin demain', NOW);
+    expect(demain.title).toBe('Appeler le médecin');
+    expect(demain.dueDate!.getDate()).toBe(25);
+
+    const vendredi = parseQuickAdd('Envoyer le rapport vendredi', NOW);
+    expect(vendredi.title).toBe('Envoyer le rapport');
+    expect(vendredi.dueDate!.getDate()).toBe(26);
+  });
+
   it('handles a fully-loaded line', () => {
     const r = parseQuickAdd('Review PR tomorrow at 5pm #Eng @review p2 every week', NOW);
     expect(r.title).toBe('Review PR');

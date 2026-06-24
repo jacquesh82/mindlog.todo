@@ -67,11 +67,14 @@ export function parseQuickAdd(input: string, now: Date = new Date()): QuickAddPa
   const { recurrence, rest } = extractRecurrence(text);
   text = rest;
 
-  // Date / time via chrono (forwardDate keeps "friday" in the future).
+  // Date / time via chrono (forwardDate keeps "friday"/"vendredi" in the
+  // future). Try English first, then French, so a bilingual line still parses.
   let dueDate: Date | null = null;
-  const results = chrono.parse(text, now, { forwardDate: true });
-  if (results.length > 0) {
-    const r = results[0]!;
+  const opts = { forwardDate: true } as const;
+  const results = chrono.parse(text, now, opts);
+  const chosen = results.length > 0 ? results : chrono.fr.parse(text, now, opts);
+  if (chosen.length > 0) {
+    const r = chosen[0]!;
     dueDate = r.start.date();
     text = (text.slice(0, r.index) + text.slice(r.index + r.text.length)).trim();
   }

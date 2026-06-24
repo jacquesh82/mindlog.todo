@@ -8,6 +8,7 @@ import { errorHandler } from '../middleware/errors.js';
 import { getOpenApiDocument } from '../openapi.js';
 import { accountRouter } from './account.routes.js';
 import { authRouter } from './auth.routes.js';
+import { projectsRouter } from './projects.routes.js';
 import { tasksRouter } from './tasks.routes.js';
 
 export function createApp(): Express {
@@ -39,6 +40,7 @@ export function createApp(): Express {
   app.use('/api/v1', authenticate);
   app.use('/api/v1/auth', authRouter);
   app.use('/api/v1', accountRouter); // /me, /api-keys
+  app.use('/api/v1/projects', projectsRouter);
   app.use('/api/v1/tasks', tasksRouter);
 
   app.use(errorHandler);

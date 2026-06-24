@@ -6,6 +6,7 @@ export { AppError, BadRequest, Conflict, NotFound, ServiceUnavailable, Unauthori
 
 // Domain types & validation schemas
 export * from './domain/task.js';
+export * from './domain/project.js';
 export * from './domain/user.js';
 
 // Database lifecycle
@@ -20,5 +21,6 @@ export { getEmbeddingProvider, embedOne, type EmbeddingProvider } from './embedd
 
 // Services — the canonical entry points
 export * as taskService from './service/task.service.js';
+export * as projectService from './service/project.service.js';
 export * as authService from './service/auth.service.js';
 export { askTasks } from './rag/ask.js';

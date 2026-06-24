@@ -82,6 +82,37 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS tasks_priority_idx ON tasks (user_id, priority);
       `,
     },
+    {
+      // Projects: the top-level containers for tasks. Every user has exactly one
+      // special `is_inbox` project (the default landing spot for new tasks).
+      id: '003_projects',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS projects (
+          id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name        TEXT NOT NULL,
+          color       TEXT,
+          parent_id   UUID REFERENCES projects(id) ON DELETE CASCADE,
+          is_inbox    BOOLEAN NOT NULL DEFAULT false,
+          is_favorite BOOLEAN NOT NULL DEFAULT false,
+          view_mode   TEXT NOT NULL DEFAULT 'list',
+          position    INT NOT NULL DEFAULT 0,
+          archived_at TIMESTAMPTZ,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS projects_user_idx ON projects (user_id);
+        CREATE INDEX IF NOT EXISTS projects_parent_idx ON projects (parent_id);
+        -- At most one inbox per user (also the ON CONFLICT target for ensureInbox).
+        CREATE UNIQUE INDEX IF NOT EXISTS projects_one_inbox_idx
+          ON projects (user_id) WHERE is_inbox;
+
+        -- Backfill: give every existing user an Inbox.
+        INSERT INTO projects (user_id, name, is_inbox)
+          SELECT id, 'Inbox', true FROM users
+          ON CONFLICT DO NOTHING;
+      `,
+    },
   ];
 }
 

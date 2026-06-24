@@ -83,17 +83,21 @@ function attach(task: Task, byParent: Map<string | null, Task[]>): TaskTree {
 }
 
 export async function createTask(userId: string, input: TaskCreateInput): Promise<Task> {
+  let parent: Task | null = null;
   if (input.parentId) {
-    const parent = await repo.getById(userId, input.parentId);
+    parent = await repo.getById(userId, input.parentId);
     if (!parent) throw BadRequest('parentId does not reference an existing task');
   }
 
-  // Resolve the project: an explicit one (validated) or the user's Inbox.
+  // Resolve the project: an explicit one (validated), else the parent's project
+  // for a sub-task, else the user's Inbox.
   let projectId: string;
   if (input.projectId) {
     const project = await projectRepo.getById(userId, input.projectId);
     if (!project) throw BadRequest('projectId does not reference an existing project');
     projectId = project.id;
+  } else if (parent?.projectId) {
+    projectId = parent.projectId;
   } else {
     projectId = (await projectRepo.ensureInbox(userId)).id;
   }

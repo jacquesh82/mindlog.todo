@@ -352,6 +352,25 @@ describe('tasks', () => {
     expect(res.body.map((t: { title: string }) => t.title)).toEqual(['tagged']);
   });
 
+  it('inherits the parent project for a sub-task', async () => {
+    const { accessToken } = await registerUser('subproj@ex.com');
+    const proj = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'P' });
+    const parent = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'parent', projectId: proj.body.id });
+    const sub = await request(app)
+      .post(`/api/v1/tasks/${parent.body.id}/subtasks`)
+      .set(auth(accessToken))
+      .send({ title: 'child' });
+    // The sub-task lands in the parent's project, not the Inbox.
+    expect(sub.body.projectId).toBe(proj.body.id);
+    const inProject = await request(app)
+      .get(`/api/v1/tasks?projectId=${proj.body.id}`)
+      .set(auth(accessToken));
+    expect(inProject.body.map((t: { title: string }) => t.title).sort()).toEqual(['child', 'parent']);
+  });
+
   it('nests sub-tasks and returns a tree', async () => {
     const { accessToken } = await registerUser('tree@ex.com');
     const root = await request(app)

@@ -175,6 +175,25 @@ export async function list(userId: string, q: TaskListQuery): Promise<Task[]> {
   return rows.map(mapRow);
 }
 
+/**
+ * List a user's tasks matching a compiled filter predicate. The predicate's
+ * placeholders must start at $2 (compileFilter(..., startIndex = 2)), since $1
+ * is the user id.
+ */
+export async function listByPredicate(
+  userId: string,
+  predicateSql: string,
+  predicateParams: unknown[],
+): Promise<Task[]> {
+  const { rows } = await getPool().query<Row>(
+    `SELECT ${COLS} FROM tasks
+     WHERE user_id = $1 AND (${predicateSql})
+     ORDER BY priority, due_date NULLS LAST, position, created_at`,
+    [userId, ...predicateParams],
+  );
+  return rows.map(mapRow);
+}
+
 /** All of a user's tasks (used to assemble a tree in memory). */
 export async function listAll(userId: string): Promise<Task[]> {
   const { rows } = await getPool().query<Row>(

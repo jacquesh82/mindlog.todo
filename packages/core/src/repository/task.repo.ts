@@ -129,6 +129,29 @@ export async function list(userId: string, q: TaskListQuery): Promise<Task[]> {
     where += ` AND section_id = $${i++}`;
     params.push(q.sectionId);
   }
+  if (q.labelId) {
+    where += ` AND id IN (SELECT task_id FROM task_labels WHERE label_id = $${i++})`;
+    params.push(q.labelId);
+  }
+  if (q.dueBefore) {
+    where += ` AND due_date < $${i++}`;
+    params.push(q.dueBefore);
+  }
+  if (q.dueAfter) {
+    where += ` AND due_date >= $${i++}`;
+    params.push(q.dueAfter);
+  }
+  if (q.overdue) {
+    where += ` AND due_date < now() AND status NOT IN ('done','cancelled')`;
+  }
+  if (q.noDate) {
+    where += ' AND due_date IS NULL';
+  }
+  if (q.completed === true) {
+    where += ` AND status = 'done'`;
+  } else if (q.completed === false) {
+    where += ` AND status NOT IN ('done','cancelled')`;
+  }
   if (q.assignee) {
     where += ` AND assignee = $${i++}`;
     params.push(q.assignee);

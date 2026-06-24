@@ -308,6 +308,50 @@ describe('tasks', () => {
     expect(res.status).toBe(400);
   });
 
+  it('filters tasks by due date, overdue, no-date and completion', async () => {
+    const { accessToken } = await registerUser('views@ex.com');
+    const mk = (body: object) => request(app).post('/api/v1/tasks').set(auth(accessToken)).send(body);
+    await mk({ title: 'overdue', dueDate: '2020-01-01T00:00:00Z' });
+    await mk({ title: 'future', dueDate: '2999-01-01T00:00:00Z' });
+    const undated = await mk({ title: 'no date' });
+
+    const overdue = await request(app).get('/api/v1/tasks?overdue=true').set(auth(accessToken));
+    expect(overdue.body.map((t: { title: string }) => t.title)).toEqual(['overdue']);
+
+    const noDate = await request(app).get('/api/v1/tasks?noDate=true').set(auth(accessToken));
+    expect(noDate.body.map((t: { title: string }) => t.title)).toEqual(['no date']);
+
+    const before = await request(app)
+      .get('/api/v1/tasks?dueBefore=2025-01-01T00:00:00Z')
+      .set(auth(accessToken));
+    expect(before.body.map((t: { title: string }) => t.title)).toEqual(['overdue']);
+
+    // Complete the undated task → it appears only under completed=true.
+    await request(app)
+      .patch(`/api/v1/tasks/${undated.body.id}`)
+      .set(auth(accessToken))
+      .send({ status: 'done' });
+    const open = await request(app).get('/api/v1/tasks?completed=false').set(auth(accessToken));
+    expect(open.body.map((t: { title: string }) => t.title).sort()).toEqual(['future', 'overdue']);
+    const done = await request(app).get('/api/v1/tasks?completed=true').set(auth(accessToken));
+    expect(done.body.map((t: { title: string }) => t.title)).toEqual(['no date']);
+  });
+
+  it('filters tasks by label', async () => {
+    const { accessToken } = await registerUser('bylabel@ex.com');
+    const lbl = await request(app).post('/api/v1/labels').set(auth(accessToken)).send({ name: 'home' });
+    await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'tagged', labelIds: [lbl.body.id] });
+    await request(app).post('/api/v1/tasks').set(auth(accessToken)).send({ title: 'untagged' });
+
+    const res = await request(app)
+      .get(`/api/v1/tasks?labelId=${lbl.body.id}`)
+      .set(auth(accessToken));
+    expect(res.body.map((t: { title: string }) => t.title)).toEqual(['tagged']);
+  });
+
   it('nests sub-tasks and returns a tree', async () => {
     const { accessToken } = await registerUser('tree@ex.com');
     const root = await request(app)

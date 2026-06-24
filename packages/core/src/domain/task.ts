@@ -74,6 +74,14 @@ export const taskListQuerySchema = z.object({
   parentId: z.uuid().optional(),
   projectId: z.uuid().optional(),
   sectionId: z.uuid().optional(),
+  labelId: z.uuid().optional(),
+  // Date filters (drive the Today / Upcoming / overdue views).
+  dueBefore: z.coerce.date().optional(),
+  dueAfter: z.coerce.date().optional(),
+  overdue: boolish.optional(),
+  noDate: boolish.optional(),
+  /** true → only completed, false → only open (excludes done & cancelled). */
+  completed: boolish.optional(),
   root: boolish.optional(),
   tree: boolish.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),

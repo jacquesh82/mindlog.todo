@@ -8,6 +8,7 @@ import { errorHandler } from '../middleware/errors.js';
 import { getOpenApiDocument } from '../openapi.js';
 import { accountRouter } from './account.routes.js';
 import { authRouter } from './auth.routes.js';
+import { labelsRouter } from './labels.routes.js';
 import { projectsRouter } from './projects.routes.js';
 import { sectionsRouter } from './sections.routes.js';
 import { tasksRouter } from './tasks.routes.js';
@@ -43,6 +44,7 @@ export function createApp(): Express {
   app.use('/api/v1', accountRouter); // /me, /api-keys
   app.use('/api/v1/projects', projectsRouter);
   app.use('/api/v1/sections', sectionsRouter);
+  app.use('/api/v1/labels', labelsRouter);
   app.use('/api/v1/tasks', tasksRouter);
 
   app.use(errorHandler);

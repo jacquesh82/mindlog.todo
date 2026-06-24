@@ -7,5 +7,7 @@ export async function ensureSchema(): Promise<void> {
 
 /** Wipe all data between tests. */
 export async function resetDb(): Promise<void> {
-  await getPool().query('TRUNCATE tasks, api_keys, refresh_tokens, users RESTART IDENTITY CASCADE');
+  await getPool().query(
+    'TRUNCATE projects, tasks, api_keys, refresh_tokens, users RESTART IDENTITY CASCADE',
+  );
 }

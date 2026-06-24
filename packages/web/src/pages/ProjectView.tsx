@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { CalendarView } from '../components/CalendarView';
 import { QuickAdd } from '../components/QuickAdd';
 import { SortBar } from '../components/SortBar';
 import { TaskEditor } from '../components/TaskEditor';
@@ -23,7 +24,7 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<ProjectViewMode>(project.viewMode);
-  const [editing, setEditing] = useState<TreeTask | null>(null);
+  const [editing, setEditing] = useState<Task | null>(null);
   const [addingSection, setAddingSection] = useState(false);
   const [sectionName, setSectionName] = useState('');
   const [sort, setSort] = useState<SortMode>('manual');
@@ -93,13 +94,13 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
         <div className="flex items-center gap-2 text-sm">
           <SortBar sort={sort} onSort={setSort} showCompleted={showCompleted} onToggleCompleted={() => setShowCompleted((v) => !v)} />
           <div className="flex items-center gap-1">
-            {(['list', 'board'] as ProjectViewMode[]).map((m) => (
+            {(['list', 'board', 'calendar'] as ProjectViewMode[]).map((m) => (
               <button
                 key={m}
                 onClick={() => void setViewMode(m)}
                 className={`rounded-md border px-2 py-1 ${mode === m ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted'}`}
               >
-                {m === 'list' ? `☰ ${t('view.list')}` : `▤ ${t('view.board')}`}
+                {m === 'list' ? `☰ ${t('view.list')}` : m === 'board' ? `▤ ${t('view.board')}` : `📅 ${t('view.calendar')}`}
               </button>
             ))}
           </div>
@@ -108,6 +109,8 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
 
       {loading ? (
         <p className="text-sm text-muted">{t('common.loading')}</p>
+      ) : mode === 'calendar' ? (
+        <CalendarView tasks={tasks} labels={labelMap} onEdit={setEditing} />
       ) : mode === 'board' ? (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {groups.map((g) => (

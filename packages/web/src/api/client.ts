@@ -1,4 +1,18 @@
-import type { ApiKey, AskResult, AuthResult, Task, TaskHit, TaskStatus, User } from '../types';
+import type {
+  ApiKey,
+  AskResult,
+  AuthResult,
+  Filter,
+  Label,
+  Project,
+  ProjectViewMode,
+  QuickAddPreview,
+  Section,
+  Task,
+  TaskHit,
+  TaskStatus,
+  User,
+} from '../types';
 
 const API: string = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const REFRESH_KEY = 'mindlog_refresh';
@@ -77,9 +91,26 @@ export interface TaskInput {
   description?: string | null;
   assignee?: string | null;
   dueDate?: string | null;
+  deadline?: string | null;
+  durationMinutes?: number | null;
+  recurrence?: string | null;
   status?: TaskStatus;
+  priority?: number;
   progress?: number;
   parentId?: string | null;
+  projectId?: string | null;
+  sectionId?: string | null;
+  labelIds?: string[];
+}
+
+export interface ProjectInput {
+  name: string;
+  color?: string | null;
+  parentId?: string | null;
+  isFavorite?: boolean;
+  viewMode?: ProjectViewMode;
+  position?: number;
+  archived?: boolean;
 }
 
 export const api = {
@@ -133,11 +164,88 @@ export const api = {
   deleteTask(id: string): Promise<void> {
     return request<void>(`/api/v1/tasks/${id}`, { method: 'DELETE' });
   },
+  quickAdd(text: string): Promise<Task> {
+    return request<Task>('/api/v1/tasks/quickadd', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+  parseQuickAdd(text: string): Promise<QuickAddPreview> {
+    return request<QuickAddPreview>('/api/v1/tasks/parse', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+  runQuery(q: string): Promise<Task[]> {
+    return request<Task[]>(`/api/v1/tasks/query?q=${encodeURIComponent(q)}`);
+  },
   search(query: string, k = 10): Promise<TaskHit[]> {
     return request<TaskHit[]>('/api/v1/tasks/search', {
       method: 'POST',
       body: JSON.stringify({ query, k }),
     });
+  },
+
+  // projects
+  listProjects(includeArchived = false): Promise<Project[]> {
+    return request<Project[]>(`/api/v1/projects${includeArchived ? '?includeArchived=true' : ''}`);
+  },
+  createProject(input: ProjectInput): Promise<Project> {
+    return request<Project>('/api/v1/projects', { method: 'POST', body: JSON.stringify(input) });
+  },
+  updateProject(id: string, patch: Partial<ProjectInput>): Promise<Project> {
+    return request<Project>(`/api/v1/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteProject(id: string): Promise<void> {
+    return request<void>(`/api/v1/projects/${id}`, { method: 'DELETE' });
+  },
+
+  // sections
+  listSections(projectId: string): Promise<Section[]> {
+    return request<Section[]>(`/api/v1/sections?projectId=${projectId}`);
+  },
+  createSection(projectId: string, name: string, position?: number): Promise<Section> {
+    return request<Section>('/api/v1/sections', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, name, position }),
+    });
+  },
+  updateSection(id: string, patch: { name?: string; position?: number }): Promise<Section> {
+    return request<Section>(`/api/v1/sections/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteSection(id: string): Promise<void> {
+    return request<void>(`/api/v1/sections/${id}`, { method: 'DELETE' });
+  },
+
+  // labels
+  listLabels(): Promise<Label[]> {
+    return request<Label[]>('/api/v1/labels');
+  },
+  createLabel(name: string, color?: string | null): Promise<Label> {
+    return request<Label>('/api/v1/labels', { method: 'POST', body: JSON.stringify({ name, color }) });
+  },
+  updateLabel(id: string, patch: { name?: string; color?: string | null }): Promise<Label> {
+    return request<Label>(`/api/v1/labels/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteLabel(id: string): Promise<void> {
+    return request<void>(`/api/v1/labels/${id}`, { method: 'DELETE' });
+  },
+
+  // filters
+  listFilters(): Promise<Filter[]> {
+    return request<Filter[]>('/api/v1/filters');
+  },
+  createFilter(input: { name: string; query: string; color?: string | null }): Promise<Filter> {
+    return request<Filter>('/api/v1/filters', { method: 'POST', body: JSON.stringify(input) });
+  },
+  updateFilter(id: string, patch: { name?: string; query?: string; color?: string | null }): Promise<Filter> {
+    return request<Filter>(`/api/v1/filters/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteFilter(id: string): Promise<void> {
+    return request<void>(`/api/v1/filters/${id}`, { method: 'DELETE' });
+  },
+  runFilter(id: string): Promise<Task[]> {
+    return request<Task[]>(`/api/v1/filters/${id}/tasks`);
   },
   ask(question: string, k = 8): Promise<AskResult> {
     return request<AskResult>('/api/v1/tasks/ask', {

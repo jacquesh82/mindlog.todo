@@ -10,9 +10,11 @@ import {
 } from '@mindlog/core';
 import { Router } from 'express';
 import { requireAuth, userId } from '../middleware/auth.js';
+import { registerTaskAttachmentRoutes } from './attachments.routes.js';
 
 export const tasksRouter: Router = Router();
 tasksRouter.use(requireAuth);
+registerTaskAttachmentRoutes(tasksRouter);
 
 tasksRouter.post('/', async (req, res) => {
   const task = await taskService.createTask(userId(req), taskCreateSchema.parse(req.body));

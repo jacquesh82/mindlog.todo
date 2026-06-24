@@ -256,6 +256,24 @@ function migrations(): Migration[] {
         ALTER TABLE labels ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN NOT NULL DEFAULT false;
       `,
     },
+    {
+      // Attachments: text content attached to a task. The extracted text is
+      // folded into the task's embedding so it is searchable by the RAG.
+      id: '013_attachments',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS attachments (
+          id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          task_id    UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          filename   TEXT NOT NULL,
+          mime       TEXT,
+          content    TEXT NOT NULL DEFAULT '',
+          byte_size  INT NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS attachments_task_idx ON attachments (task_id);
+      `,
+    },
   ];
 }
 

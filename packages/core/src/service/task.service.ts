@@ -16,7 +16,30 @@ import {
 } from '../domain/filter-query.js';
 import { parseQuickAdd, type QuickAddParse } from '../domain/quickadd.js';
 import { nextOccurrence, normalizeRecurrence, parseRecurrence } from '../domain/recurrence.js';
+import * as attachmentRepo from '../repository/attachment.repo.js';
 import * as karma from './karma.service.js';
+
+/** Embed a task's text plus its attachment content (for RAG over attachments). */
+async function embedTaskWithAttachments(
+  taskId: string,
+  fields: Parameters<typeof taskEmbeddingText>[0],
+): Promise<number[] | null> {
+  const base = taskEmbeddingText(fields);
+  const attach = await attachmentRepo.textForTask(taskId);
+  return safeEmbed(attach ? `${base}\n${attach}` : base);
+}
+
+/** Recompute a task's embedding from its fields and current attachments. */
+export async function reembedTask(userId: string, taskId: string): Promise<void> {
+  const task = await repo.getById(userId, taskId);
+  if (!task) return;
+  const embedding = await embedTaskWithAttachments(taskId, {
+    title: task.title,
+    description: task.description,
+    assignee: task.assignee,
+  });
+  await repo.update(userId, taskId, {}, embedding);
+}
 import { embedOne } from '../embeddings/provider.js';
 import { BadRequest, NotFound } from '../errors.js';
 import * as labelRepo from '../repository/label.repo.js';
@@ -209,16 +232,14 @@ export async function updateTask(
     await assertSectionInProject(userId, next.sectionId, targetProject);
   }
 
-  // Re-embed only when an embedded field changes.
+  // Re-embed only when an embedded field changes (attachment text included).
   let embedding: number[] | null | undefined;
   if (patch.title !== undefined || patch.description !== undefined || patch.assignee !== undefined) {
-    embedding = await safeEmbed(
-      taskEmbeddingText({
-        title: patch.title ?? existing.title,
-        description: patch.description !== undefined ? patch.description : existing.description,
-        assignee: patch.assignee !== undefined ? patch.assignee : existing.assignee,
-      }),
-    );
+    embedding = await embedTaskWithAttachments(id, {
+      title: patch.title ?? existing.title,
+      description: patch.description !== undefined ? patch.description : existing.description,
+      assignee: patch.assignee !== undefined ? patch.assignee : existing.assignee,
+    });
   }
 
   if (patch.labelIds !== undefined) {

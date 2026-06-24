@@ -129,6 +129,25 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS sections_project_idx ON sections (project_id);
       `,
     },
+    {
+      // Link tasks to a project (required, defaults to Inbox) and an optional
+      // section. Deleting a project deletes its tasks; deleting a section just
+      // un-sections the tasks (they stay in the project).
+      id: '005_task_project_section',
+      sql: /* sql */ `
+        ALTER TABLE tasks
+          ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+          ADD COLUMN IF NOT EXISTS section_id UUID REFERENCES sections(id) ON DELETE SET NULL;
+
+        -- Backfill: move every existing task into its owner's Inbox.
+        UPDATE tasks t SET project_id = p.id
+          FROM projects p
+          WHERE p.user_id = t.user_id AND p.is_inbox AND t.project_id IS NULL;
+
+        CREATE INDEX IF NOT EXISTS tasks_project_idx ON tasks (project_id);
+        CREATE INDEX IF NOT EXISTS tasks_section_idx ON tasks (section_id);
+      `,
+    },
   ];
 }
 

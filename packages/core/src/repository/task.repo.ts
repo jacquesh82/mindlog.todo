@@ -1,13 +1,15 @@
 import type { Task, TaskListQuery, TaskSearchHit, TaskStatus, TaskUpdateInput } from '../domain/task.js';
 import { getPool, toVectorLiteral } from '../db/pool.js';
 
-const COLS = `id, user_id, parent_id, title, description, assignee, due_date,
-  status, priority, progress, position, created_at, updated_at`;
+const COLS = `id, user_id, parent_id, project_id, section_id, title, description,
+  assignee, due_date, status, priority, progress, position, created_at, updated_at`;
 
 interface Row {
   id: string;
   user_id: string;
   parent_id: string | null;
+  project_id: string | null;
+  section_id: string | null;
   title: string;
   description: string | null;
   assignee: string | null;
@@ -26,6 +28,8 @@ function mapRow(r: Row): Task {
     id: r.id,
     userId: r.user_id,
     parentId: r.parent_id,
+    projectId: r.project_id,
+    sectionId: r.section_id,
     title: r.title,
     description: r.description,
     assignee: r.assignee,
@@ -48,6 +52,8 @@ export interface InsertTaskFields {
   priority?: number;
   progress?: number;
   parentId?: string | null;
+  projectId?: string | null;
+  sectionId?: string | null;
   position?: number;
 }
 
@@ -58,12 +64,15 @@ export async function insert(
 ): Promise<Task> {
   const { rows } = await getPool().query<Row>(
     `INSERT INTO tasks
-       (user_id, parent_id, title, description, assignee, due_date, status, priority, progress, position, embedding)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::vector)
+       (user_id, parent_id, project_id, section_id, title, description, assignee,
+        due_date, status, priority, progress, position, embedding)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector)
      RETURNING ${COLS}`,
     [
       userId,
       fields.parentId ?? null,
+      fields.projectId ?? null,
+      fields.sectionId ?? null,
       fields.title,
       fields.description ?? null,
       fields.assignee ?? null,
@@ -97,6 +106,14 @@ export async function list(userId: string, q: TaskListQuery): Promise<Task[]> {
   if (q.priority) {
     where += ` AND priority = $${i++}`;
     params.push(q.priority);
+  }
+  if (q.projectId) {
+    where += ` AND project_id = $${i++}`;
+    params.push(q.projectId);
+  }
+  if (q.sectionId) {
+    where += ` AND section_id = $${i++}`;
+    params.push(q.sectionId);
   }
   if (q.assignee) {
     where += ` AND assignee = $${i++}`;
@@ -152,6 +169,8 @@ export async function update(
   if (patch.progress !== undefined) set('progress', patch.progress);
   if (patch.position !== undefined) set('position', patch.position);
   if (patch.parentId !== undefined) set('parent_id', patch.parentId);
+  if (patch.projectId !== undefined) set('project_id', patch.projectId);
+  if (patch.sectionId !== undefined) set('section_id', patch.sectionId);
   if (embedding !== undefined) {
     sets.push(`embedding = $${i++}::vector`);
     vals.push(embedding === null ? null : toVectorLiteral(embedding));

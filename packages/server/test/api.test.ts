@@ -147,6 +147,79 @@ describe('tasks', () => {
     expect(res.status).toBe(400);
   });
 
+  it('defaults a new task to the Inbox project', async () => {
+    const { accessToken } = await registerUser('taskinbox@ex.com');
+    const projects = await request(app).get('/api/v1/projects').set(auth(accessToken));
+    const inbox = projects.body.find((p: { isInbox: boolean }) => p.isInbox);
+
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'loose task' });
+    expect(created.body.projectId).toBe(inbox.id);
+    expect(created.body.sectionId).toBeNull();
+  });
+
+  it('places a task in a project + section and moving project clears the section', async () => {
+    const { accessToken } = await registerUser('taskmove@ex.com');
+    const projA = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'A' });
+    const projB = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'B' });
+    const section = await request(app)
+      .post('/api/v1/sections')
+      .set(auth(accessToken))
+      .send({ projectId: projA.body.id, name: 'Col' });
+
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 't', projectId: projA.body.id, sectionId: section.body.id });
+    expect(created.body.projectId).toBe(projA.body.id);
+    expect(created.body.sectionId).toBe(section.body.id);
+
+    // Move to project B — the section (which belongs to A) must be cleared.
+    const moved = await request(app)
+      .patch(`/api/v1/tasks/${created.body.id}`)
+      .set(auth(accessToken))
+      .send({ projectId: projB.body.id });
+    expect(moved.body.projectId).toBe(projB.body.id);
+    expect(moved.body.sectionId).toBeNull();
+
+    // Listing by project filters correctly.
+    const inB = await request(app)
+      .get(`/api/v1/tasks?projectId=${projB.body.id}`)
+      .set(auth(accessToken));
+    expect(inB.body).toHaveLength(1);
+  });
+
+  it('rejects a section that belongs to a different project', async () => {
+    const { accessToken } = await registerUser('badsection@ex.com');
+    const projA = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'A' });
+    const projB = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'B' });
+    const sectionA = await request(app)
+      .post('/api/v1/sections')
+      .set(auth(accessToken))
+      .send({ projectId: projA.body.id, name: 'Col' });
+
+    const res = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 't', projectId: projB.body.id, sectionId: sectionA.body.id });
+    expect(res.status).toBe(400);
+  });
+
+  it('deletes a project and cascades its tasks', async () => {
+    const { accessToken } = await registerUser('cascadeproj@ex.com');
+    const proj = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'Temp' });
+    const task = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'doomed', projectId: proj.body.id });
+
+    await request(app).delete(`/api/v1/projects/${proj.body.id}`).set(auth(accessToken));
+    const after = await request(app).get(`/api/v1/tasks/${task.body.id}`).set(auth(accessToken));
+    expect(after.status).toBe(404);
+  });
+
   it('nests sub-tasks and returns a tree', async () => {
     const { accessToken } = await registerUser('tree@ex.com');
     const root = await request(app)

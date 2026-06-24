@@ -32,6 +32,8 @@ export const taskCreateSchema = z.object({
   priority: prioritySchema.optional(),
   progress: z.number().int().min(0).max(100).optional(),
   parentId: z.uuid().optional(),
+  projectId: z.uuid().optional(),
+  sectionId: z.uuid().optional(),
   position: z.number().int().min(0).optional(),
 });
 export type TaskCreateInput = z.infer<typeof taskCreateSchema>;
@@ -46,6 +48,8 @@ export const taskUpdateSchema = z.object({
   priority: prioritySchema.optional(),
   progress: z.number().int().min(0).max(100).optional(),
   parentId: z.uuid().nullable().optional(),
+  projectId: z.uuid().nullable().optional(),
+  sectionId: z.uuid().nullable().optional(),
   position: z.number().int().min(0).optional(),
 });
 export type TaskUpdateInput = z.infer<typeof taskUpdateSchema>;
@@ -55,6 +59,8 @@ export const taskListQuerySchema = z.object({
   priority: prioritySchema.optional(),
   assignee: z.string().optional(),
   parentId: z.uuid().optional(),
+  projectId: z.uuid().optional(),
+  sectionId: z.uuid().optional(),
   root: boolish.optional(),
   tree: boolish.optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
@@ -79,6 +85,8 @@ export interface Task {
   id: string;
   userId: string;
   parentId: string | null;
+  projectId: string | null;
+  sectionId: string | null;
   title: string;
   description: string | null;
   assignee: string | null;

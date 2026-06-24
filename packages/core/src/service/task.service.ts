@@ -10,7 +10,22 @@ import {
 } from '../domain/task.js';
 import { embedOne } from '../embeddings/provider.js';
 import { BadRequest, NotFound } from '../errors.js';
+import * as projectRepo from '../repository/project.repo.js';
+import * as sectionRepo from '../repository/section.repo.js';
 import * as repo from '../repository/task.repo.js';
+
+/** Validate that a section exists and belongs to the given project. */
+async function assertSectionInProject(
+  userId: string,
+  sectionId: string,
+  projectId: string,
+): Promise<void> {
+  const section = await sectionRepo.getById(userId, sectionId);
+  if (!section) throw BadRequest('sectionId does not reference an existing section');
+  if (section.projectId !== projectId) {
+    throw BadRequest('sectionId belongs to a different project');
+  }
+}
 
 /**
  * Embed text, but never let an embedding failure (e.g. a missing cloud API key)
@@ -47,6 +62,18 @@ export async function createTask(userId: string, input: TaskCreateInput): Promis
     const parent = await repo.getById(userId, input.parentId);
     if (!parent) throw BadRequest('parentId does not reference an existing task');
   }
+
+  // Resolve the project: an explicit one (validated) or the user's Inbox.
+  let projectId: string;
+  if (input.projectId) {
+    const project = await projectRepo.getById(userId, input.projectId);
+    if (!project) throw BadRequest('projectId does not reference an existing project');
+    projectId = project.id;
+  } else {
+    projectId = (await projectRepo.ensureInbox(userId)).id;
+  }
+  if (input.sectionId) await assertSectionInProject(userId, input.sectionId, projectId);
+
   const embedding = await safeEmbed(
     taskEmbeddingText({
       title: input.title,
@@ -65,6 +92,8 @@ export async function createTask(userId: string, input: TaskCreateInput): Promis
       priority: input.priority,
       progress: input.progress,
       parentId: input.parentId ?? null,
+      projectId,
+      sectionId: input.sectionId ?? null,
       position: input.position,
     },
     embedding,
@@ -114,6 +143,29 @@ export async function updateTask(
     }
   }
 
+  // Resolve project/section moves. `next` carries the effective patch with any
+  // null projectId rewritten to the Inbox id.
+  const next: TaskUpdateInput = { ...patch };
+  let targetProject = existing.projectId;
+  if (patch.projectId !== undefined) {
+    if (patch.projectId === null) {
+      targetProject = (await projectRepo.ensureInbox(userId)).id;
+    } else {
+      const project = await projectRepo.getById(userId, patch.projectId);
+      if (!project) throw BadRequest('projectId does not reference an existing project');
+      targetProject = project.id;
+    }
+    next.projectId = targetProject;
+    // Moving to another project drops a section unless a new one is given.
+    if (targetProject !== existing.projectId && patch.sectionId === undefined) {
+      next.sectionId = null;
+    }
+  }
+  if (next.sectionId !== undefined && next.sectionId !== null) {
+    if (!targetProject) throw BadRequest('Cannot set a section on a task with no project');
+    await assertSectionInProject(userId, next.sectionId, targetProject);
+  }
+
   // Re-embed only when an embedded field changes.
   let embedding: number[] | null | undefined;
   if (patch.title !== undefined || patch.description !== undefined || patch.assignee !== undefined) {
@@ -126,7 +178,7 @@ export async function updateTask(
     );
   }
 
-  const updated = await repo.update(userId, id, patch, embedding);
+  const updated = await repo.update(userId, id, next, embedding);
   if (!updated) throw NotFound('Task not found');
   return updated;
 }

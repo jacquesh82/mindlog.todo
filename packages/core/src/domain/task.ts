@@ -35,6 +35,7 @@ export const taskCreateSchema = z.object({
   dueDate: z.coerce.date().optional(),
   deadline: dateOnlySchema.optional(),
   durationMinutes: z.number().int().positive().optional(),
+  recurrence: z.string().max(200).optional(),
   status: z.enum(TASK_STATUSES).optional(),
   priority: prioritySchema.optional(),
   progress: z.number().int().min(0).max(100).optional(),
@@ -54,6 +55,7 @@ export const taskUpdateSchema = z.object({
   dueDate: z.coerce.date().nullable().optional(),
   deadline: dateOnlySchema.nullable().optional(),
   durationMinutes: z.number().int().positive().nullable().optional(),
+  recurrence: z.string().max(200).nullable().optional(),
   status: z.enum(TASK_STATUSES).optional(),
   priority: prioritySchema.optional(),
   progress: z.number().int().min(0).max(100).optional(),
@@ -104,6 +106,7 @@ export interface Task {
   dueDate: string | null;
   deadline: string | null;
   durationMinutes: number | null;
+  recurrence: string | null;
   status: TaskStatus;
   priority: number;
   progress: number;

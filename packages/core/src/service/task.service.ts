@@ -8,6 +8,7 @@ import {
   type TaskTree,
   type TaskUpdateInput,
 } from '../domain/task.js';
+import { nextOccurrence, normalizeRecurrence, parseRecurrence } from '../domain/recurrence.js';
 import { embedOne } from '../embeddings/provider.js';
 import { BadRequest, NotFound } from '../errors.js';
 import * as labelRepo from '../repository/label.repo.js';
@@ -91,6 +92,12 @@ export async function createTask(userId: string, input: TaskCreateInput): Promis
   if (input.sectionId) await assertSectionInProject(userId, input.sectionId, projectId);
   if (input.labelIds) await assertLabelsOwned(userId, input.labelIds);
 
+  let recurrence: string | null = null;
+  if (input.recurrence !== undefined) {
+    recurrence = normalizeRecurrence(input.recurrence);
+    if (!recurrence) throw BadRequest('Unrecognised recurrence rule');
+  }
+
   const embedding = await safeEmbed(
     taskEmbeddingText({
       title: input.title,
@@ -107,6 +114,7 @@ export async function createTask(userId: string, input: TaskCreateInput): Promis
       dueDate: input.dueDate ?? null,
       deadline: input.deadline ?? null,
       durationMinutes: input.durationMinutes ?? null,
+      recurrence,
       status: input.status,
       priority: input.priority,
       progress: input.progress,
@@ -203,6 +211,23 @@ export async function updateTask(
 
   if (patch.labelIds !== undefined) {
     await assertLabelsOwned(userId, patch.labelIds);
+  }
+
+  // Normalise a new recurrence rule (null clears it).
+  if (patch.recurrence !== undefined && patch.recurrence !== null) {
+    const canonical = normalizeRecurrence(patch.recurrence);
+    if (!canonical) throw BadRequest('Unrecognised recurrence rule');
+    next.recurrence = canonical;
+  }
+
+  // Completing a recurring task reschedules it to the next occurrence rather
+  // than marking it done (Todoist behaviour).
+  if (patch.status === 'done' && existing.recurrence && existing.dueDate) {
+    const rule = parseRecurrence(existing.recurrence);
+    if (rule) {
+      next.status = 'todo';
+      next.dueDate = nextOccurrence(rule, new Date(existing.dueDate));
+    }
   }
 
   const updated = await repo.update(userId, id, next, embedding);

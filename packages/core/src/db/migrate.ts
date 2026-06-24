@@ -148,6 +148,30 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS tasks_section_idx ON tasks (section_id);
       `,
     },
+    {
+      // Labels: cross-project tags. `task_labels` is the many-to-many join.
+      id: '006_labels',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS labels (
+          id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name       TEXT NOT NULL,
+          color      TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        -- Label names are unique per user, case-insensitively.
+        CREATE UNIQUE INDEX IF NOT EXISTS labels_user_name_idx
+          ON labels (user_id, lower(name));
+
+        CREATE TABLE IF NOT EXISTS task_labels (
+          task_id  UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          label_id UUID NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+          PRIMARY KEY (task_id, label_id)
+        );
+        CREATE INDEX IF NOT EXISTS task_labels_label_idx ON task_labels (label_id);
+      `,
+    },
   ];
 }
 

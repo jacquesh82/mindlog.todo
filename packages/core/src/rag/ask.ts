@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
 import type { TaskAskInput, TaskAskResult } from '../domain/task.js';
 import { ServiceUnavailable } from '../errors.js';
+import * as aiLog from '../service/ai-log.service.js';
 import { searchTasks } from '../service/task.service.js';
 
 let client: Anthropic | null = null;
@@ -34,13 +35,12 @@ export async function askTasks(userId: string, input: TaskAskInput): Promise<Tas
       )
       .join('\n\n') || '(no matching tasks)';
 
+  const userPrompt = `Tasks:\n${context}\n\nQuestion: ${input.question}`;
   const message = await getClient().messages.create({
     model: config.askModel,
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
-    messages: [
-      { role: 'user', content: `Tasks:\n${context}\n\nQuestion: ${input.question}` },
-    ],
+    messages: [{ role: 'user', content: userPrompt }],
   });
 
   const answer = message.content
@@ -48,6 +48,16 @@ export async function askTasks(userId: string, input: TaskAskInput): Promise<Tas
     .map((block) => block.text)
     .join('\n')
     .trim();
+
+  // Record the call (prompt, response, token usage) for the activity log.
+  await aiLog.record(userId, {
+    kind: 'ask',
+    model: config.askModel,
+    prompt: userPrompt,
+    response: answer,
+    inputTokens: message.usage.input_tokens,
+    outputTokens: message.usage.output_tokens,
+  });
 
   return {
     answer,

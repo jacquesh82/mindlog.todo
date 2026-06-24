@@ -13,6 +13,7 @@ export * from './domain/filter.js';
 export * from './domain/project.js';
 export * from './domain/section.js';
 export * from './domain/label.js';
+export * from './domain/ai-log.js';
 export * from './domain/user.js';
 
 // Database lifecycle
@@ -31,5 +32,6 @@ export * as projectService from './service/project.service.js';
 export * as sectionService from './service/section.service.js';
 export * as labelService from './service/label.service.js';
 export * as filterService from './service/filter.service.js';
+export * as aiLogService from './service/ai-log.service.js';
 export * as authService from './service/auth.service.js';
 export { askTasks } from './rag/ask.js';

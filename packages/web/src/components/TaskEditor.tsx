@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { PRIORITY_COLOR } from '../format';
 import { useI18n } from '../i18n';
-import type { Label, Project, Section, Task } from '../types';
+import type { Attachment, Label, Project, Section, Task } from '../types';
 
 interface Props {
   task: Task;
@@ -32,6 +32,21 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
   const [sections, setSections] = useState<Section[]>([]);
   const [labelIds, setLabelIds] = useState<string[]>(task.labelIds);
   const [busy, setBusy] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const loadAttachments = () => void api.listAttachments(task.id).then(setAttachments);
+  useEffect(loadAttachments, [task.id]);
+
+  async function onFiles(files: FileList | null) {
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      const content = await file.text();
+      await api.addAttachment(task.id, { filename: file.name, mime: file.type || undefined, content });
+    }
+    if (fileRef.current) fileRef.current.value = '';
+    loadAttachments();
+  }
 
   // Load the chosen project's sections; clear the section if it no longer fits.
   useEffect(() => {
@@ -176,6 +191,34 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
             </div>
           </Field>
         )}
+
+        <div className="mt-4">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-medium text-muted">{t('attach.title')}</span>
+            <button onClick={() => fileRef.current?.click()} className="text-xs text-brand hover:underline">
+              ＋ {t('attach.add')}
+            </button>
+            <input ref={fileRef} type="file" multiple className="hidden" onChange={(e) => void onFiles(e.target.files)} />
+          </div>
+          {attachments.length === 0 ? (
+            <p className="text-xs text-muted">{t('attach.hint')}</p>
+          ) : (
+            <ul className="divide-y divide-line rounded-md border border-line">
+              {attachments.map((a) => (
+                <li key={a.id} className="flex items-center gap-2 px-2 py-1 text-xs">
+                  <span className="flex-1 truncate text-ink">📎 {a.filename}</span>
+                  <span className="text-muted">{Math.max(1, Math.round(a.byteSize / 1024))} KB</span>
+                  <button
+                    onClick={() => void api.deleteAttachment(a.id).then(loadAttachments)}
+                    className="text-muted hover:text-[var(--color-p1)]"
+                  >
+                    🗑
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-md px-3 py-1.5 text-sm text-ink hover:bg-line/60">

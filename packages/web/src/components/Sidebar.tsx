@@ -109,30 +109,6 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
         )}
 
         <Section
-          title={t('nav.projects')}
-          action={
-            <button className="text-muted hover:text-brand" onClick={() => setModal('create')} title={t('project.add')}>
-              ＋
-            </button>
-          }
-        >
-          {realProjects.map((p) => (
-            <ProjectRow
-              key={p.id}
-              project={p}
-              active={is('project', p.id)}
-              onOpen={() => onSelect({ kind: 'project', id: p.id })}
-              onEdit={() => setModal(p)}
-            />
-          ))}
-          {realProjects.length === 0 && (
-            <button onClick={() => setModal('create')} className="px-2 py-1.5 text-sm text-muted hover:text-brand">
-              ＋ {t('project.add')}
-            </button>
-          )}
-        </Section>
-
-        <Section
           title={t('nav.filters')}
           action={
             <button className="text-muted hover:text-brand" onClick={() => setFilterModal('create')} title={t('filter.add')}>
@@ -180,6 +156,30 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
           {labels.length === 0 && (
             <button onClick={() => setLabelModal('create')} className="px-2 py-1.5 text-sm text-muted hover:text-brand">
               ＋ {t('label.add')}
+            </button>
+          )}
+        </Section>
+
+        <Section
+          title={t('nav.projects')}
+          action={
+            <button className="text-muted hover:text-brand" onClick={() => setModal('create')} title={t('project.add')}>
+              ＋
+            </button>
+          }
+        >
+          {realProjects.map((p) => (
+            <ProjectRow
+              key={p.id}
+              project={p}
+              active={is('project', p.id)}
+              onOpen={() => onSelect({ kind: 'project', id: p.id })}
+              onEdit={() => setModal(p)}
+            />
+          ))}
+          {realProjects.length === 0 && (
+            <button onClick={() => setModal('create')} className="px-2 py-1.5 text-sm text-muted hover:text-brand">
+              ＋ {t('project.add')}
             </button>
           )}
         </Section>

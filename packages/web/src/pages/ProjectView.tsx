@@ -124,7 +124,7 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
                   <TaskRow key={task.id} task={task} labels={labelMap} onChanged={changed} onEdit={setEditing} />
                 ))}
               </ul>
-              <QuickAdd defaultProjectId={project.id} defaultSectionId={g.section?.id} onAdded={changed} />
+              <QuickAdd defaultProjectId={project.id} defaultSectionId={g.section?.id} projects={projects} labels={labels} onAdded={changed} />
             </div>
           ))}
           <AddSectionColumn
@@ -149,7 +149,7 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
                   <TaskRow key={task.id} task={task} labels={labelMap} onChanged={changed} onEdit={setEditing} />
                 ))}
               </ul>
-              <QuickAdd defaultProjectId={project.id} defaultSectionId={g.section?.id} onAdded={changed} />
+              <QuickAdd defaultProjectId={project.id} defaultSectionId={g.section?.id} projects={projects} labels={labels} onAdded={changed} />
             </div>
           ))}
           <div className="mt-2">

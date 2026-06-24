@@ -108,7 +108,7 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
       </div>
 
       {view.kind !== 'filter' && view.kind !== 'label' && view.kind !== 'completed' && (
-        <QuickAdd defaultProjectId={defaultProjectId} onAdded={changed} />
+        <QuickAdd defaultProjectId={defaultProjectId} projects={projects} labels={labels} onAdded={changed} />
       )}
 
       {loading ? (

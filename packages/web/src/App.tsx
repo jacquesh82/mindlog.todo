@@ -5,6 +5,7 @@ import { LoginPage } from './auth/LoginPage';
 import { MainView } from './components/MainView';
 import { Sidebar } from './components/Sidebar';
 import { useI18n } from './i18n';
+import { ProjectView } from './pages/ProjectView';
 import { SearchAskView } from './pages/SearchAskView';
 import { SettingsPage } from './pages/SettingsPage';
 import type { Filter, Karma, Label, Project } from './types';
@@ -60,19 +61,33 @@ export function App() {
         onReload={reloadSidebar}
       />
       <main className="flex-1 overflow-y-auto">
-        {view.kind === 'settings' ? (
-          <SettingsPage />
-        ) : view.kind === 'search' ? (
-          <SearchAskView />
-        ) : (
-          <MainView
-            view={view}
-            projects={projects}
-            labels={labels}
-            filters={filters}
-            onDataChanged={reloadSidebar}
-          />
-        )}
+        {(() => {
+          if (view.kind === 'settings') return <SettingsPage />;
+          if (view.kind === 'search') return <SearchAskView />;
+          if (view.kind === 'project' || view.kind === 'inbox') {
+            const project = projects.find((p) => p.id === view.id);
+            if (project) {
+              return (
+                <ProjectView
+                  key={project.id}
+                  project={project}
+                  projects={projects}
+                  labels={labels}
+                  onDataChanged={reloadSidebar}
+                />
+              );
+            }
+          }
+          return (
+            <MainView
+              view={view}
+              projects={projects}
+              labels={labels}
+              filters={filters}
+              onDataChanged={reloadSidebar}
+            />
+          );
+        })()}
       </main>
     </div>
   );

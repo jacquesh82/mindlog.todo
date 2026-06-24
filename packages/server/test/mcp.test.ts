@@ -36,7 +36,16 @@ describe('mcp tools', () => {
     const { client } = await connectFor('m1@ex.com');
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
     expect(tools).toEqual(
-      ['task_ask', 'task_create', 'task_delete', 'task_get', 'task_list', 'task_search', 'task_update'].sort(),
+      [
+        'task_ask',
+        'task_create',
+        'task_delete',
+        'task_get',
+        'task_list',
+        'task_quick_add',
+        'task_search',
+        'task_update',
+      ].sort(),
     );
     await client.close();
   });

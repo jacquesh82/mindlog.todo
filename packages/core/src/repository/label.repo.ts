@@ -43,6 +43,15 @@ export async function getById(userId: string, id: string): Promise<Label | null>
   return rows[0] ? mapRow(rows[0]) : null;
 }
 
+/** Find a label by name (case-insensitive). */
+export async function findByName(userId: string, name: string): Promise<Label | null> {
+  const { rows } = await getPool().query<Row>(
+    `SELECT ${COLS} FROM labels WHERE user_id = $1 AND lower(name) = lower($2) LIMIT 1`,
+    [userId, name],
+  );
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
 export async function list(userId: string): Promise<Label[]> {
   const { rows } = await getPool().query<Row>(
     `SELECT ${COLS} FROM labels WHERE user_id = $1 ORDER BY lower(name)`,

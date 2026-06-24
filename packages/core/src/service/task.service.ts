@@ -8,6 +8,7 @@ import {
   type TaskTree,
   type TaskUpdateInput,
 } from '../domain/task.js';
+import { parseQuickAdd, type QuickAddParse } from '../domain/quickadd.js';
 import { nextOccurrence, normalizeRecurrence, parseRecurrence } from '../domain/recurrence.js';
 import { embedOne } from '../embeddings/provider.js';
 import { BadRequest, NotFound } from '../errors.js';
@@ -247,4 +248,60 @@ export async function searchTasks(
   const vec = await embedOne(input.query);
   if (vec.length === 0) return [];
   return attachLabels(await repo.search(userId, vec, input.k, input.status));
+}
+
+/** Preview of a Quick Add line, with the project/label names it would resolve. */
+export interface QuickAddPreview extends QuickAddParse {
+  projectId: string | null;
+  labelIds: string[];
+  newLabelNames: string[];
+}
+
+/** Resolve a parsed Quick Add line against the user's projects/labels. */
+async function resolveQuickAdd(userId: string, parsed: QuickAddParse): Promise<QuickAddPreview> {
+  let projectId: string | null = null;
+  if (parsed.projectName) {
+    const project = await projectRepo.findByName(userId, parsed.projectName);
+    projectId = project?.id ?? null;
+  }
+  const labelIds: string[] = [];
+  const newLabelNames: string[] = [];
+  for (const name of parsed.labelNames) {
+    const existing = await labelRepo.findByName(userId, name);
+    if (existing) labelIds.push(existing.id);
+    else newLabelNames.push(name);
+  }
+  return { ...parsed, projectId, labelIds, newLabelNames };
+}
+
+export async function previewQuickAdd(userId: string, text: string): Promise<QuickAddPreview> {
+  return resolveQuickAdd(userId, parseQuickAdd(text));
+}
+
+/** Parse a Quick Add line and create the task, creating any missing labels. */
+export async function quickAddTask(userId: string, text: string): Promise<Task> {
+  const parsed = parseQuickAdd(text);
+  if (!parsed.title) throw BadRequest('Quick add produced an empty title');
+
+  let projectId: string | undefined;
+  if (parsed.projectName) {
+    const project = await projectRepo.findByName(userId, parsed.projectName);
+    if (project) projectId = project.id;
+  }
+
+  const labelIds: string[] = [];
+  for (const name of parsed.labelNames) {
+    const existing =
+      (await labelRepo.findByName(userId, name)) ?? (await labelRepo.insert(userId, name, null));
+    labelIds.push(existing.id);
+  }
+
+  return createTask(userId, {
+    title: parsed.title,
+    projectId,
+    dueDate: parsed.dueDate ?? undefined,
+    priority: parsed.priority ?? undefined,
+    recurrence: parsed.recurrence ?? undefined,
+    labelIds: labelIds.length ? labelIds : undefined,
+  });
 }

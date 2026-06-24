@@ -5,6 +5,7 @@ import { useI18n } from '../i18n';
 import type { Filter, Label, Project, Task } from '../types';
 import type { View } from '../app/view';
 import { TaskRow } from './TaskRow';
+import { TaskEditor } from './TaskEditor';
 import { QuickAdd } from './QuickAdd';
 
 interface Props {
@@ -56,6 +57,7 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
   const { t } = useI18n();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Task | null>(null);
 
   const labelMap = new Map(labels.map((l) => [l.id, l]));
   const defaultProjectId =
@@ -95,9 +97,19 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
       ) : (
         <ul className="mt-2">
           {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} labels={labelMap} onChanged={changed} />
+            <TaskRow key={task.id} task={task} labels={labelMap} onChanged={changed} onEdit={setEditing} />
           ))}
         </ul>
+      )}
+
+      {editing && (
+        <TaskEditor
+          task={editing}
+          projects={projects}
+          labels={labels}
+          onClose={() => setEditing(null)}
+          onSaved={changed}
+        />
       )}
     </div>
   );

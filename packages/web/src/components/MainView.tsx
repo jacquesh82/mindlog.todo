@@ -4,6 +4,8 @@ import { startOfToday, startOfTomorrow } from '../format';
 import { useI18n } from '../i18n';
 import type { Filter, Label, Project, Task } from '../types';
 import type { View } from '../app/view';
+import { buildTree, sortTree, type SortMode, type TreeTask } from '../tree';
+import { SortBar } from './SortBar';
 import { TaskRow } from './TaskRow';
 import { TaskEditor } from './TaskEditor';
 import { QuickAdd } from './QuickAdd';
@@ -36,20 +38,23 @@ function titleFor(
   }
 }
 
-async function loadTasks(view: View): Promise<Task[]> {
+async function loadTasks(view: View, showCompleted: boolean): Promise<Task[]> {
+  const completed = showCompleted ? undefined : ('false' as const);
+  const withCompleted = (p: Record<string, string>) =>
+    completed ? { ...p, completed } : p;
   switch (view.kind) {
     case 'today':
-      return api.listTasks({ completed: 'false', dueBefore: startOfTomorrow().toISOString() });
+      return api.listTasks(withCompleted({ dueBefore: startOfTomorrow().toISOString() }));
     case 'upcoming':
-      return api.listTasks({ completed: 'false', dueAfter: startOfToday().toISOString() });
+      return api.listTasks(withCompleted({ dueAfter: startOfToday().toISOString() }));
     case 'completed':
       return api.listTasks({ completed: 'true' });
     case 'inbox':
-      return api.listTasks({ projectId: view.id, completed: 'false' });
+      return api.listTasks(withCompleted({ projectId: view.id }));
     case 'project':
-      return api.listTasks({ projectId: view.id });
+      return api.listTasks(withCompleted({ projectId: view.id }));
     case 'label':
-      return api.listTasks({ labelId: view.id, completed: 'false' });
+      return api.listTasks(withCompleted({ labelId: view.id }));
     case 'filter':
       return api.runFilter(view.id);
     case 'search':
@@ -62,19 +67,22 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
   const { t } = useI18n();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<Task | null>(null);
+  const [editing, setEditing] = useState<TreeTask | null>(null);
+  const [sort, setSort] = useState<SortMode>('manual');
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const labelMap = new Map(labels.map((l) => [l.id, l]));
   const defaultProjectId =
     view.kind === 'project' || view.kind === 'inbox' ? view.id : undefined;
+  const canToggleCompleted = view.kind !== 'completed' && view.kind !== 'filter';
 
   const reload = useCallback(() => {
     setLoading(true);
-    loadTasks(view)
+    loadTasks(view, showCompleted)
       .then(setTasks)
       .catch(() => setTasks([]))
       .finally(() => setLoading(false));
-  }, [view]);
+  }, [view, showCompleted]);
 
   useEffect(() => {
     reload();
@@ -85,11 +93,19 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
     onDataChanged();
   };
 
+  const tree = sortTree(buildTree(tasks), sort);
+
   return (
     <div className="mx-auto w-full max-w-3xl px-8 py-8">
-      <h1 className="mb-4 text-xl font-bold text-ink">
-        {titleFor(view, projects, labels, filters, t)}
-      </h1>
+      <div className="mb-3 flex items-center justify-between">
+        <h1 className="text-xl font-bold text-ink">{titleFor(view, projects, labels, filters, t)}</h1>
+        <SortBar
+          sort={sort}
+          onSort={setSort}
+          showCompleted={canToggleCompleted ? showCompleted : undefined}
+          onToggleCompleted={() => setShowCompleted((v) => !v)}
+        />
+      </div>
 
       {view.kind !== 'filter' && view.kind !== 'label' && view.kind !== 'completed' && (
         <QuickAdd defaultProjectId={defaultProjectId} onAdded={changed} />
@@ -97,11 +113,11 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
 
       {loading ? (
         <p className="mt-6 text-sm text-muted">{t('common.loading')}</p>
-      ) : tasks.length === 0 ? (
+      ) : tree.length === 0 ? (
         <p className="mt-10 text-center text-sm text-muted">{t('task.empty')}</p>
       ) : (
         <ul className="mt-2">
-          {tasks.map((task) => (
+          {tree.map((task) => (
             <TaskRow key={task.id} task={task} labels={labelMap} onChanged={changed} onEdit={setEditing} />
           ))}
         </ul>

@@ -45,17 +45,18 @@ describe('quick add', () => {
     expect(labels.body.map((l: { name: string }) => l.name)).toContain('urgent');
   });
 
-  it('falls back to the Inbox when the #project is unknown', async () => {
-    const token = await registerUser('qa-inbox@ex.com');
-    const inbox = (await request(app).get('/api/v1/projects').set(auth(token))).body.find(
-      (p: { isInbox: boolean }) => p.isInbox,
-    );
+  it('creates the #project on the fly when it does not exist', async () => {
+    const token = await registerUser('qa-newproj@ex.com');
     const res = await request(app)
       .post('/api/v1/tasks/quickadd')
       .set(auth(token))
       .send({ text: 'Buy milk #Groceries' });
-    expect(res.body.projectId).toBe(inbox.id);
     expect(res.body.title).toBe('Buy milk');
+    // A "Groceries" project was created and the task placed in it.
+    const projects = await request(app).get('/api/v1/projects').set(auth(token));
+    const groceries = projects.body.find((p: { name: string }) => p.name === 'Groceries');
+    expect(groceries).toBeTruthy();
+    expect(res.body.projectId).toBe(groceries.id);
   });
 
   it('previews a line without creating anything', async () => {

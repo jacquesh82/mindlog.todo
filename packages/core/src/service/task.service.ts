@@ -352,10 +352,12 @@ export async function quickAddTask(userId: string, text: string): Promise<Task> 
   const parsed = parseQuickAdd(text);
   if (!parsed.title) throw BadRequest('Quick add produced an empty title');
 
+  // `#project` resolves to an existing project, or creates one (so the
+  // reference is never silently lost). `@label` is handled below.
   let projectId: string | undefined;
   if (parsed.projectName) {
-    const project = await projectRepo.findByName(userId, parsed.projectName);
-    if (project) projectId = project.id;
+    const existing = await projectRepo.findByName(userId, parsed.projectName);
+    projectId = existing?.id ?? (await projectRepo.insert(userId, { name: parsed.projectName })).id;
   }
 
   const labelIds: string[] = [];

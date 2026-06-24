@@ -7,7 +7,7 @@ import { Sidebar } from './components/Sidebar';
 import { useI18n } from './i18n';
 import { SearchAskView } from './pages/SearchAskView';
 import { SettingsPage } from './pages/SettingsPage';
-import type { Filter, Label, Project } from './types';
+import type { Filter, Karma, Label, Project } from './types';
 import type { View } from './app/view';
 
 export function App() {
@@ -17,16 +17,21 @@ export function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
   const [filters, setFilters] = useState<Filter[]>([]);
+  const [karma, setKarma] = useState<Karma | null>(null);
 
   const reloadSidebar = useCallback(() => {
     if (!user) return;
-    void Promise.all([api.listProjects(), api.listLabels(), api.listFilters()]).then(
-      ([p, l, f]) => {
-        setProjects(p);
-        setLabels(l);
-        setFilters(f);
-      },
-    );
+    void Promise.all([
+      api.listProjects(),
+      api.listLabels(),
+      api.listFilters(),
+      api.getKarma(),
+    ]).then(([p, l, f, k]) => {
+      setProjects(p);
+      setLabels(l);
+      setFilters(f);
+      setKarma(k);
+    });
   }, [user]);
 
   useEffect(() => {
@@ -49,6 +54,7 @@ export function App() {
         projects={projects}
         labels={labels}
         filters={filters}
+        karma={karma}
         view={view}
         onSelect={setView}
         onReload={reloadSidebar}

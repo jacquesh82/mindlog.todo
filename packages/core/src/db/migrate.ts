@@ -229,6 +229,26 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS ai_logs_user_idx ON ai_logs (user_id, created_at DESC);
       `,
     },
+    {
+      // Completion tracking + Karma: a completed_at timestamp (the archive) and
+      // an append-only ledger of karma points earned for completing tasks.
+      id: '011_karma',
+      sql: /* sql */ `
+        ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+        UPDATE tasks SET completed_at = updated_at
+          WHERE status = 'done' AND completed_at IS NULL;
+        CREATE INDEX IF NOT EXISTS tasks_completed_idx ON tasks (user_id, completed_at);
+
+        CREATE TABLE IF NOT EXISTS karma_events (
+          id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          points     INT NOT NULL,
+          reason     TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS karma_events_user_idx ON karma_events (user_id, created_at);
+      `,
+    },
   ];
 }
 

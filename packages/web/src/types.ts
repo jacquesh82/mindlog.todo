@@ -134,3 +134,13 @@ export interface AiUsage {
   outputTokens: number;
   totalTokens: number;
 }
+
+export interface Karma {
+  points: number;
+  level: string;
+  nextLevel: string | null;
+  pointsToNext: number | null;
+  completedToday: number;
+  completedThisWeek: number;
+  streakDays: number;
+}

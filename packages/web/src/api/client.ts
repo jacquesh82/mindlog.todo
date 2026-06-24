@@ -5,6 +5,7 @@ import type {
   AskResult,
   AuthResult,
   Filter,
+  Karma,
   Label,
   Project,
   ProjectViewMode,
@@ -254,6 +255,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ question, k }),
     });
+  },
+
+  // karma
+  getKarma(): Promise<Karma> {
+    return request<Karma>('/api/v1/karma');
   },
 
   // AI activity

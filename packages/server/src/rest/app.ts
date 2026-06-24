@@ -10,6 +10,7 @@ import { accountRouter } from './account.routes.js';
 import { authRouter } from './auth.routes.js';
 import { aiRouter } from './ai.routes.js';
 import { filtersRouter } from './filters.routes.js';
+import { karmaRouter } from './karma.routes.js';
 import { labelsRouter } from './labels.routes.js';
 import { projectsRouter } from './projects.routes.js';
 import { sectionsRouter } from './sections.routes.js';
@@ -49,6 +50,7 @@ export function createApp(): Express {
   app.use('/api/v1/labels', labelsRouter);
   app.use('/api/v1/filters', filtersRouter);
   app.use('/api/v1/ai', aiRouter);
+  app.use('/api/v1/karma', karmaRouter);
   app.use('/api/v1/tasks', tasksRouter);
 
   app.use(errorHandler);

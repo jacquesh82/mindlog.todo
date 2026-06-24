@@ -3,7 +3,7 @@ import { getPool, toVectorLiteral } from '../db/pool.js';
 
 const COLS = `id, user_id, parent_id, project_id, section_id, title, description,
   assignee, due_date, deadline::text AS deadline, duration_minutes, recurrence_rule,
-  status, priority, progress, position, created_at, updated_at`;
+  status, priority, progress, position, completed_at, created_at, updated_at`;
 
 interface Row {
   id: string;
@@ -22,6 +22,7 @@ interface Row {
   priority: number;
   progress: number;
   position: number;
+  completed_at: Date | null;
   created_at: Date;
   updated_at: Date;
   score?: number;
@@ -46,6 +47,7 @@ function mapRow(r: Row): Task {
     progress: r.progress,
     position: r.position,
     labelIds: [], // filled by the service-layer label enrichment
+    completedAt: r.completed_at ? r.completed_at.toISOString() : null,
     createdAt: r.created_at.toISOString(),
     updatedAt: r.updated_at.toISOString(),
   };
@@ -208,6 +210,7 @@ export async function update(
   id: string,
   patch: TaskUpdateInput,
   embedding: number[] | null | undefined,
+  completedAt?: Date | null,
 ): Promise<Task | null> {
   const sets: string[] = [];
   const vals: unknown[] = [];
@@ -230,6 +233,7 @@ export async function update(
   if (patch.parentId !== undefined) set('parent_id', patch.parentId);
   if (patch.projectId !== undefined) set('project_id', patch.projectId);
   if (patch.sectionId !== undefined) set('section_id', patch.sectionId);
+  if (completedAt !== undefined) set('completed_at', completedAt);
   if (embedding !== undefined) {
     sets.push(`embedding = $${i++}::vector`);
     vals.push(embedding === null ? null : toVectorLiteral(embedding));

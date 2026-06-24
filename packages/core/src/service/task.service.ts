@@ -16,6 +16,7 @@ import {
 } from '../domain/filter-query.js';
 import { parseQuickAdd, type QuickAddParse } from '../domain/quickadd.js';
 import { nextOccurrence, normalizeRecurrence, parseRecurrence } from '../domain/recurrence.js';
+import * as karma from './karma.service.js';
 import { embedOne } from '../embeddings/provider.js';
 import { BadRequest, NotFound } from '../errors.js';
 import * as labelRepo from '../repository/label.repo.js';
@@ -229,15 +230,28 @@ export async function updateTask(
 
   // Completing a recurring task reschedules it to the next occurrence rather
   // than marking it done (Todoist behaviour).
+  let recurringReschedule = false;
   if (patch.status === 'done' && existing.recurrence && existing.dueDate) {
     const rule = parseRecurrence(existing.recurrence);
     if (rule) {
       next.status = 'todo';
       next.dueDate = nextOccurrence(rule, new Date(existing.dueDate));
+      recurringReschedule = true;
     }
   }
 
-  const updated = await repo.update(userId, id, next, embedding);
+  // Track the completion timestamp and award karma on the open→done transition.
+  const wasDone = existing.status === 'done';
+  const becomesDone = next.status === 'done';
+  let completedAt: Date | null | undefined;
+  if (!wasDone && (becomesDone || recurringReschedule)) {
+    if (becomesDone) completedAt = new Date();
+    await karma.awardForCompletion(userId, existing.priority);
+  } else if (wasDone && next.status !== undefined && !becomesDone) {
+    completedAt = null; // re-opened
+  }
+
+  const updated = await repo.update(userId, id, next, embedding, completedAt);
   if (!updated) throw NotFound('Task not found');
   if (patch.labelIds !== undefined) await repo.setTaskLabels(updated.id, patch.labelIds);
   return (await attachLabels([updated]))[0]!;

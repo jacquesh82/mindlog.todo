@@ -125,6 +125,7 @@ export interface Task {
   progress: number;
   position: number;
   labelIds: string[];
+  completedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n, type Lang } from '../i18n';
-import type { Filter, Label, Project } from '../types';
+import type { Filter, Karma, Label, Project } from '../types';
 import type { View } from '../app/view';
 
 interface Props {
   projects: Project[];
   labels: Label[];
   filters: Filter[];
+  karma: Karma | null;
   view: View;
   onSelect: (view: View) => void;
   onReload: () => void;
@@ -47,7 +48,7 @@ function Item({
   );
 }
 
-export function Sidebar({ projects, labels, filters, view, onSelect, onReload }: Props) {
+export function Sidebar({ projects, labels, filters, karma, view, onSelect, onReload }: Props) {
   const { t, lang, setLang } = useI18n();
   const { user, logout } = useAuth();
   const [adding, setAdding] = useState(false);
@@ -138,6 +139,17 @@ export function Sidebar({ projects, labels, filters, view, onSelect, onReload }:
         )}
       </nav>
 
+      {karma && (
+        <div className="border-t border-line px-4 py-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-ink">⚡ {karma.level}</span>
+            <span className="text-muted">{karma.points} pts</span>
+          </div>
+          <div className="mt-0.5 text-muted">
+            🔥 {karma.streakDays} {t('karma.dayStreak')} · {karma.completedToday} {t('karma.today')}
+          </div>
+        </div>
+      )}
       <div className="border-t border-line px-4 py-2 text-xs text-muted">
         <div className="truncate">{user?.displayName ?? user?.email}</div>
         <button className="mt-1 hover:text-brand" onClick={() => void logout()}>

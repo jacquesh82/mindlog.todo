@@ -2,7 +2,7 @@ import type { Task, TaskListQuery, TaskSearchHit, TaskStatus, TaskUpdateInput } 
 import { getPool, toVectorLiteral } from '../db/pool.js';
 
 const COLS = `id, user_id, parent_id, title, description, assignee, due_date,
-  status, progress, position, created_at, updated_at`;
+  status, priority, progress, position, created_at, updated_at`;
 
 interface Row {
   id: string;
@@ -13,6 +13,7 @@ interface Row {
   assignee: string | null;
   due_date: Date | null;
   status: TaskStatus;
+  priority: number;
   progress: number;
   position: number;
   created_at: Date;
@@ -30,6 +31,7 @@ function mapRow(r: Row): Task {
     assignee: r.assignee,
     dueDate: r.due_date ? r.due_date.toISOString() : null,
     status: r.status,
+    priority: r.priority,
     progress: r.progress,
     position: r.position,
     createdAt: r.created_at.toISOString(),
@@ -43,6 +45,7 @@ export interface InsertTaskFields {
   assignee?: string | null;
   dueDate?: Date | null;
   status?: TaskStatus;
+  priority?: number;
   progress?: number;
   parentId?: string | null;
   position?: number;
@@ -55,8 +58,8 @@ export async function insert(
 ): Promise<Task> {
   const { rows } = await getPool().query<Row>(
     `INSERT INTO tasks
-       (user_id, parent_id, title, description, assignee, due_date, status, progress, position, embedding)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::vector)
+       (user_id, parent_id, title, description, assignee, due_date, status, priority, progress, position, embedding)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::vector)
      RETURNING ${COLS}`,
     [
       userId,
@@ -66,6 +69,7 @@ export async function insert(
       fields.assignee ?? null,
       fields.dueDate ?? null,
       fields.status ?? 'todo',
+      fields.priority ?? 4,
       fields.progress ?? 0,
       fields.position ?? 0,
       embedding ? toVectorLiteral(embedding) : null,
@@ -89,6 +93,10 @@ export async function list(userId: string, q: TaskListQuery): Promise<Task[]> {
   if (q.status) {
     where += ` AND status = $${i++}`;
     params.push(q.status);
+  }
+  if (q.priority) {
+    where += ` AND priority = $${i++}`;
+    params.push(q.priority);
   }
   if (q.assignee) {
     where += ` AND assignee = $${i++}`;
@@ -140,6 +148,7 @@ export async function update(
   if (patch.assignee !== undefined) set('assignee', patch.assignee);
   if (patch.dueDate !== undefined) set('due_date', patch.dueDate);
   if (patch.status !== undefined) set('status', patch.status);
+  if (patch.priority !== undefined) set('priority', patch.priority);
   if (patch.progress !== undefined) set('progress', patch.progress);
   if (patch.position !== undefined) set('position', patch.position);
   if (patch.parentId !== undefined) set('parent_id', patch.parentId);

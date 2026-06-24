@@ -112,6 +112,41 @@ describe('tasks', () => {
     expect(after.status).toBe(404);
   });
 
+  it('defaults priority to P4 and round-trips an explicit priority', async () => {
+    const { accessToken } = await registerUser('prio@ex.com');
+
+    const plain = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'no priority' });
+    expect(plain.body.priority).toBe(4);
+
+    const urgent = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'urgent', priority: 1 });
+    expect(urgent.body.priority).toBe(1);
+
+    const patched = await request(app)
+      .patch(`/api/v1/tasks/${plain.body.id}`)
+      .set(auth(accessToken))
+      .send({ priority: 2 });
+    expect(patched.body.priority).toBe(2);
+
+    const p1Only = await request(app).get('/api/v1/tasks?priority=1').set(auth(accessToken));
+    expect(p1Only.body).toHaveLength(1);
+    expect(p1Only.body[0].title).toBe('urgent');
+  });
+
+  it('rejects an out-of-range priority with 400', async () => {
+    const { accessToken } = await registerUser('badprio@ex.com');
+    const res = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'x', priority: 9 });
+    expect(res.status).toBe(400);
+  });
+
   it('nests sub-tasks and returns a tree', async () => {
     const { accessToken } = await registerUser('tree@ex.com');
     const root = await request(app)

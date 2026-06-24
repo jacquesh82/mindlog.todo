@@ -2,7 +2,8 @@ import type { Task, TaskListQuery, TaskSearchHit, TaskStatus, TaskUpdateInput } 
 import { getPool, toVectorLiteral } from '../db/pool.js';
 
 const COLS = `id, user_id, parent_id, project_id, section_id, title, description,
-  assignee, due_date, status, priority, progress, position, created_at, updated_at`;
+  assignee, due_date, deadline::text AS deadline, duration_minutes,
+  status, priority, progress, position, created_at, updated_at`;
 
 interface Row {
   id: string;
@@ -14,6 +15,8 @@ interface Row {
   description: string | null;
   assignee: string | null;
   due_date: Date | null;
+  deadline: string | null;
+  duration_minutes: number | null;
   status: TaskStatus;
   priority: number;
   progress: number;
@@ -34,6 +37,8 @@ function mapRow(r: Row): Task {
     description: r.description,
     assignee: r.assignee,
     dueDate: r.due_date ? r.due_date.toISOString() : null,
+    deadline: r.deadline,
+    durationMinutes: r.duration_minutes,
     status: r.status,
     priority: r.priority,
     progress: r.progress,
@@ -49,6 +54,8 @@ export interface InsertTaskFields {
   description?: string | null;
   assignee?: string | null;
   dueDate?: Date | null;
+  deadline?: string | null;
+  durationMinutes?: number | null;
   status?: TaskStatus;
   priority?: number;
   progress?: number;
@@ -66,8 +73,8 @@ export async function insert(
   const { rows } = await getPool().query<Row>(
     `INSERT INTO tasks
        (user_id, parent_id, project_id, section_id, title, description, assignee,
-        due_date, status, priority, progress, position, embedding)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector)
+        due_date, deadline, duration_minutes, status, priority, progress, position, embedding)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::vector)
      RETURNING ${COLS}`,
     [
       userId,
@@ -78,6 +85,8 @@ export async function insert(
       fields.description ?? null,
       fields.assignee ?? null,
       fields.dueDate ?? null,
+      fields.deadline ?? null,
+      fields.durationMinutes ?? null,
       fields.status ?? 'todo',
       fields.priority ?? 4,
       fields.progress ?? 0,
@@ -165,6 +174,8 @@ export async function update(
   if (patch.description !== undefined) set('description', patch.description);
   if (patch.assignee !== undefined) set('assignee', patch.assignee);
   if (patch.dueDate !== undefined) set('due_date', patch.dueDate);
+  if (patch.deadline !== undefined) set('deadline', patch.deadline);
+  if (patch.durationMinutes !== undefined) set('duration_minutes', patch.durationMinutes);
   if (patch.status !== undefined) set('status', patch.status);
   if (patch.priority !== undefined) set('priority', patch.priority);
   if (patch.progress !== undefined) set('progress', patch.progress);

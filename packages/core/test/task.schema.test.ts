@@ -32,3 +32,23 @@ describe('task priority schema', () => {
     expect(taskUpdateSchema.parse({ priority: 3 })).toEqual({ priority: 3 });
   });
 });
+
+describe('task date schema', () => {
+  it('accepts a YYYY-MM-DD deadline and a positive duration', () => {
+    const parsed = taskCreateSchema.parse({ title: 'x', deadline: '2026-07-15', durationMinutes: 90 });
+    expect(parsed.deadline).toBe('2026-07-15');
+    expect(parsed.durationMinutes).toBe(90);
+  });
+
+  it('rejects a non-date deadline and a non-positive duration', () => {
+    expect(() => taskCreateSchema.parse({ title: 'x', deadline: '15/07/2026' })).toThrow();
+    expect(() => taskCreateSchema.parse({ title: 'x', durationMinutes: 0 })).toThrow();
+  });
+
+  it('allows clearing deadline/duration with null on update', () => {
+    expect(taskUpdateSchema.parse({ deadline: null, durationMinutes: null })).toEqual({
+      deadline: null,
+      durationMinutes: null,
+    });
+  });
+});

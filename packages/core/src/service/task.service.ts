@@ -105,6 +105,8 @@ export async function createTask(userId: string, input: TaskCreateInput): Promis
       description: input.description ?? null,
       assignee: input.assignee ?? null,
       dueDate: input.dueDate ?? null,
+      deadline: input.deadline ?? null,
+      durationMinutes: input.durationMinutes ?? null,
       status: input.status,
       priority: input.priority,
       progress: input.progress,

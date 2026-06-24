@@ -3,6 +3,19 @@ import { z } from 'zod';
 export const TASK_STATUSES = ['todo', 'in_progress', 'blocked', 'done', 'cancelled'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
+/**
+ * Todoist-style priority. 1 = P1 (urgent), 4 = P4 (none) and the default.
+ * Lower number = higher urgency, so `ORDER BY priority` surfaces P1 first.
+ */
+export const TASK_PRIORITY_MIN = 1;
+export const TASK_PRIORITY_MAX = 4;
+export const TASK_PRIORITY_DEFAULT = 4;
+const prioritySchema = z.coerce
+  .number()
+  .int()
+  .min(TASK_PRIORITY_MIN)
+  .max(TASK_PRIORITY_MAX);
+
 /** Parse a query-string flag without the `z.coerce.boolean()` "false"->true trap. */
 const boolish = z.preprocess(
   (v) => v === true || v === 'true' || v === '1',
@@ -16,6 +29,7 @@ export const taskCreateSchema = z.object({
   assignee: z.string().max(200).optional(),
   dueDate: z.coerce.date().optional(),
   status: z.enum(TASK_STATUSES).optional(),
+  priority: prioritySchema.optional(),
   progress: z.number().int().min(0).max(100).optional(),
   parentId: z.uuid().optional(),
   position: z.number().int().min(0).optional(),
@@ -29,6 +43,7 @@ export const taskUpdateSchema = z.object({
   assignee: z.string().max(200).nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
   status: z.enum(TASK_STATUSES).optional(),
+  priority: prioritySchema.optional(),
   progress: z.number().int().min(0).max(100).optional(),
   parentId: z.uuid().nullable().optional(),
   position: z.number().int().min(0).optional(),
@@ -37,6 +52,7 @@ export type TaskUpdateInput = z.infer<typeof taskUpdateSchema>;
 
 export const taskListQuerySchema = z.object({
   status: z.enum(TASK_STATUSES).optional(),
+  priority: prioritySchema.optional(),
   assignee: z.string().optional(),
   parentId: z.uuid().optional(),
   root: boolish.optional(),
@@ -68,6 +84,7 @@ export interface Task {
   assignee: string | null;
   dueDate: string | null;
   status: TaskStatus;
+  priority: number;
   progress: number;
   position: number;
   createdAt: string;

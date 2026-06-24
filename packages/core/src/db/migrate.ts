@@ -72,6 +72,16 @@ function migrations(): Migration[] {
           ON tasks USING hnsw (embedding vector_cosine_ops);
       `,
     },
+    {
+      // Todoist-style priority: 1 = P1 (urgent) … 4 = P4 (none / default).
+      id: '002_task_priority',
+      sql: /* sql */ `
+        ALTER TABLE tasks
+          ADD COLUMN IF NOT EXISTS priority SMALLINT NOT NULL DEFAULT 4
+            CHECK (priority BETWEEN 1 AND 4);
+        CREATE INDEX IF NOT EXISTS tasks_priority_idx ON tasks (user_id, priority);
+      `,
+    },
   ];
 }
 

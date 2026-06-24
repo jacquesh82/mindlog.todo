@@ -36,6 +36,7 @@ export function createMcpServer(userId: string): McpServer {
         assignee: z.string().optional(),
         dueDate: z.string().describe('ISO 8601 datetime').optional(),
         status: statusEnum.optional(),
+        priority: z.number().int().min(1).max(4).describe('1 = P1 (urgent) … 4 = P4 (none)').optional(),
         progress: z.number().int().min(0).max(100).optional(),
         parentId: z.string().optional(),
       },
@@ -50,6 +51,7 @@ export function createMcpServer(userId: string): McpServer {
       description: 'List tasks with optional filters. Use tree=true for a nested tree.',
       inputSchema: {
         status: statusEnum.optional(),
+        priority: z.number().int().min(1).max(4).optional(),
         assignee: z.string().optional(),
         parentId: z.string().optional(),
         root: z.boolean().optional(),
@@ -84,6 +86,7 @@ export function createMcpServer(userId: string): McpServer {
         assignee: z.string().nullable().optional(),
         dueDate: z.string().nullable().optional(),
         status: statusEnum.optional(),
+        priority: z.number().int().min(1).max(4).optional(),
         progress: z.number().int().min(0).max(100).optional(),
         parentId: z.string().nullable().optional(),
       },

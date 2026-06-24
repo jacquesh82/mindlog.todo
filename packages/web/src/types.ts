@@ -136,6 +136,17 @@ export interface AiUsage {
   totalTokens: number;
 }
 
+export interface Attachment {
+  id: string;
+  taskId: string;
+  userId: string;
+  filename: string;
+  mime: string | null;
+  byteSize: number;
+  createdAt: string;
+  content?: string;
+}
+
 export interface Karma {
   points: number;
   level: string;

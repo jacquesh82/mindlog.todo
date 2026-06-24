@@ -2,6 +2,7 @@ import type {
   AiLog,
   AiUsage,
   ApiKey,
+  Attachment,
   AskResult,
   AuthResult,
   Filter,
@@ -187,6 +188,17 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ query, k }),
     });
+  },
+
+  // attachments (feed the RAG)
+  listAttachments(taskId: string): Promise<Attachment[]> {
+    return request<Attachment[]>(`/api/v1/tasks/${taskId}/attachments`);
+  },
+  addAttachment(taskId: string, a: { filename: string; mime?: string; content: string }): Promise<Attachment> {
+    return request<Attachment>(`/api/v1/tasks/${taskId}/attachments`, { method: 'POST', body: JSON.stringify(a) });
+  },
+  deleteAttachment(id: string): Promise<void> {
+    return request<void>(`/api/v1/attachments/${id}`, { method: 'DELETE' });
   },
 
   // projects

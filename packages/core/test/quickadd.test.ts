@@ -57,6 +57,25 @@ describe('parseQuickAdd', () => {
     expect(vendredi.dueDate!.getDate()).toBe(26);
   });
 
+  it('keeps tags and parses the full date for a French line (regression)', () => {
+    const r = parseQuickAdd('réunion vendredi à 17h #travail @urgent', NOW);
+    // The date phrase must not leak into the title, and tags stay intact.
+    expect(r.title).toBe('réunion');
+    expect(r.projectName).toBe('travail');
+    expect(r.labelNames).toEqual(['urgent']);
+    expect(r.dueDate!.getDate()).toBe(26); // the coming Friday
+    expect(r.dueDate!.getHours()).toBe(17);
+  });
+
+  it('strips a dangling connector left by date removal', () => {
+    const r = parseQuickAdd('envoyer le rapport le 30 juin #travail @client', NOW);
+    expect(r.title).toBe('envoyer le rapport');
+    expect(r.projectName).toBe('travail');
+    expect(r.labelNames).toEqual(['client']);
+    expect(r.dueDate!.getMonth()).toBe(5); // June
+    expect(r.dueDate!.getDate()).toBe(30);
+  });
+
   it('handles a fully-loaded line', () => {
     const r = parseQuickAdd('Review PR tomorrow at 5pm #Eng @review p2 every week', NOW);
     expect(r.title).toBe('Review PR');

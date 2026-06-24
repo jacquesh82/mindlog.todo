@@ -68,17 +68,24 @@ export function parseQuickAdd(input: string, now: Date = new Date()): QuickAddPa
   text = rest;
 
   // Date / time via chrono (forwardDate keeps "friday"/"vendredi" in the
-  // future). Try English first, then French, so a bilingual line still parses.
+  // future). Parse with BOTH English and French and keep the single match that
+  // covers the most text — otherwise English grabs a partial match (e.g. just
+  // "17h") and leaves the rest of a French date phrase in the title.
   let dueDate: Date | null = null;
   const opts = { forwardDate: true } as const;
-  const results = chrono.parse(text, now, opts);
-  const chosen = results.length > 0 ? results : chrono.fr.parse(text, now, opts);
-  if (chosen.length > 0) {
-    const r = chosen[0]!;
-    dueDate = r.start.date();
-    text = (text.slice(0, r.index) + text.slice(r.index + r.text.length)).trim();
+  const candidates = [...chrono.parse(text, now, opts), ...chrono.fr.parse(text, now, opts)];
+  let best: (typeof candidates)[number] | null = null;
+  for (const r of candidates) {
+    if (!best || r.text.length > best.text.length) best = r;
+  }
+  if (best) {
+    dueDate = best.start.date();
+    text = (text.slice(0, best.index) + text.slice(best.index + best.text.length)).trim();
   }
 
-  const title = text.replace(/\s{2,}/g, ' ').trim();
+  // Strip a dangling connector left at the title edge by date removal
+  // (e.g. "réunion le" / "call about at").
+  const CONNECTORS = /(?:^|\s)(?:à|le|la|les|du|de|the|at|on|by|for)\s*$/i;
+  const title = text.replace(/\s{2,}/g, ' ').replace(CONNECTORS, '').trim();
   return { title, projectName, labelNames, priority, dueDate, recurrence };
 }

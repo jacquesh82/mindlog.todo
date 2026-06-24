@@ -38,6 +38,7 @@ function mapRow(r: Row): Task {
     priority: r.priority,
     progress: r.progress,
     position: r.position,
+    labelIds: [], // filled by the service-layer label enrichment
     createdAt: r.created_at.toISOString(),
     updatedAt: r.updated_at.toISOString(),
   };
@@ -211,6 +212,34 @@ export async function descendantIds(userId: string, id: string): Promise<string[
     [userId, id],
   );
   return rows.map((r) => r.id);
+}
+
+/** Replace a task's label set (caller must have validated ownership). */
+export async function setTaskLabels(taskId: string, labelIds: string[]): Promise<void> {
+  const pool = getPool();
+  await pool.query('DELETE FROM task_labels WHERE task_id = $1', [taskId]);
+  if (labelIds.length === 0) return;
+  const values = labelIds.map((_, idx) => `($1, $${idx + 2})`).join(',');
+  await pool.query(
+    `INSERT INTO task_labels (task_id, label_id) VALUES ${values} ON CONFLICT DO NOTHING`,
+    [taskId, ...labelIds],
+  );
+}
+
+/** Map of taskId -> its label ids, for a batch of tasks (avoids N+1 reads). */
+export async function labelsByTask(taskIds: string[]): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (taskIds.length === 0) return map;
+  const { rows } = await getPool().query<{ task_id: string; label_id: string }>(
+    `SELECT task_id, label_id FROM task_labels WHERE task_id = ANY($1::uuid[])`,
+    [taskIds],
+  );
+  for (const r of rows) {
+    const list = map.get(r.task_id);
+    if (list) list.push(r.label_id);
+    else map.set(r.task_id, [r.label_id]);
+  }
+  return map;
 }
 
 export async function search(

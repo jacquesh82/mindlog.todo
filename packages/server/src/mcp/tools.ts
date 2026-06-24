@@ -41,6 +41,7 @@ export function createMcpServer(userId: string): McpServer {
         parentId: z.string().optional(),
         projectId: z.string().describe('defaults to the Inbox project').optional(),
         sectionId: z.string().optional(),
+        labelIds: z.array(z.string()).optional(),
       },
     },
     async (args) => jsonResult(await taskService.createTask(userId, taskCreateSchema.parse(args))),
@@ -95,6 +96,7 @@ export function createMcpServer(userId: string): McpServer {
         parentId: z.string().nullable().optional(),
         projectId: z.string().nullable().optional(),
         sectionId: z.string().nullable().optional(),
+        labelIds: z.array(z.string()).optional(),
       },
     },
     async ({ id, ...patch }) =>

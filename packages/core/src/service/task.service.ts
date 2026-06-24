@@ -10,9 +10,25 @@ import {
 } from '../domain/task.js';
 import { embedOne } from '../embeddings/provider.js';
 import { BadRequest, NotFound } from '../errors.js';
+import * as labelRepo from '../repository/label.repo.js';
 import * as projectRepo from '../repository/project.repo.js';
 import * as sectionRepo from '../repository/section.repo.js';
 import * as repo from '../repository/task.repo.js';
+
+/** Validate that every id in `labelIds` is a label the user owns. */
+async function assertLabelsOwned(userId: string, labelIds: string[]): Promise<void> {
+  const owned = await labelRepo.ownedIds(userId, labelIds);
+  if (owned.length !== new Set(labelIds).size) {
+    throw BadRequest('labelIds contains an unknown label');
+  }
+}
+
+/** Fill `labelIds` on a batch of tasks (mutates in place) and return them. */
+async function attachLabels<T extends Task>(tasks: T[]): Promise<T[]> {
+  const map = await repo.labelsByTask(tasks.map((t) => t.id));
+  for (const t of tasks) t.labelIds = map.get(t.id) ?? [];
+  return tasks;
+}
 
 /** Validate that a section exists and belongs to the given project. */
 async function assertSectionInProject(
@@ -73,6 +89,7 @@ export async function createTask(userId: string, input: TaskCreateInput): Promis
     projectId = (await projectRepo.ensureInbox(userId)).id;
   }
   if (input.sectionId) await assertSectionInProject(userId, input.sectionId, projectId);
+  if (input.labelIds) await assertLabelsOwned(userId, input.labelIds);
 
   const embedding = await safeEmbed(
     taskEmbeddingText({
@@ -81,7 +98,7 @@ export async function createTask(userId: string, input: TaskCreateInput): Promis
       assignee: input.assignee ?? null,
     }),
   );
-  return repo.insert(
+  const created = await repo.insert(
     userId,
     {
       title: input.title,
@@ -98,6 +115,8 @@ export async function createTask(userId: string, input: TaskCreateInput): Promis
     },
     embedding,
   );
+  if (input.labelIds?.length) await repo.setTaskLabels(created.id, input.labelIds);
+  return (await attachLabels([created]))[0]!;
 }
 
 export async function getTask(
@@ -107,9 +126,11 @@ export async function getTask(
 ): Promise<Task | TaskTree> {
   const task = await repo.getById(userId, id);
   if (!task) throw NotFound('Task not found');
-  if (!opts.withChildren) return task;
-  const all = await repo.listAll(userId);
-  return attach(task, groupByParent(all));
+  if (!opts.withChildren) return (await attachLabels([task]))[0]!;
+  const all = await attachLabels(await repo.listAll(userId));
+  // Use the enriched copy of the root so it carries its labels too.
+  const enrichedRoot = all.find((t) => t.id === task.id) ?? task;
+  return attach(enrichedRoot, groupByParent(all));
 }
 
 export async function listTasks(
@@ -117,11 +138,11 @@ export async function listTasks(
   q: TaskListQuery,
 ): Promise<Task[] | TaskTree[]> {
   if (q.tree) {
-    const byParent = groupByParent(await repo.listAll(userId));
+    const byParent = groupByParent(await attachLabels(await repo.listAll(userId)));
     const roots = byParent.get(q.parentId ?? null) ?? [];
     return roots.map((t) => attach(t, byParent));
   }
-  return repo.list(userId, q);
+  return attachLabels(await repo.list(userId, q));
 }
 
 export async function updateTask(
@@ -178,9 +199,14 @@ export async function updateTask(
     );
   }
 
+  if (patch.labelIds !== undefined) {
+    await assertLabelsOwned(userId, patch.labelIds);
+  }
+
   const updated = await repo.update(userId, id, next, embedding);
   if (!updated) throw NotFound('Task not found');
-  return updated;
+  if (patch.labelIds !== undefined) await repo.setTaskLabels(updated.id, patch.labelIds);
+  return (await attachLabels([updated]))[0]!;
 }
 
 export async function deleteTask(userId: string, id: string): Promise<void> {
@@ -193,5 +219,5 @@ export async function searchTasks(
 ): Promise<TaskSearchHit[]> {
   const vec = await embedOne(input.query);
   if (vec.length === 0) return [];
-  return repo.search(userId, vec, input.k, input.status);
+  return attachLabels(await repo.search(userId, vec, input.k, input.status));
 }

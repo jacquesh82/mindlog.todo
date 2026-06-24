@@ -1,6 +1,7 @@
 export type View =
   | { kind: 'today' }
   | { kind: 'upcoming' }
+  | { kind: 'completed' }
   | { kind: 'search' }
   | { kind: 'inbox'; id: string }
   | { kind: 'project'; id: string }

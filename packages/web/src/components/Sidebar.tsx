@@ -93,6 +93,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
         {inbox && (
           <Item active={is('inbox')} icon="📥" label={t('nav.inbox')} onClick={() => onSelect({ kind: 'inbox', id: inbox.id })} />
         )}
+        <Item active={is('completed')} icon="✓" label={t('nav.completed')} onClick={() => onSelect({ kind: 'completed' })} />
 
         {favorites.length > 0 && (
           <Section title={t('nav.favorites')}>

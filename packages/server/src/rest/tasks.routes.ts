@@ -34,6 +34,12 @@ tasksRouter.post('/parse', async (req, res) => {
   res.json(await taskService.previewQuickAdd(userId(req), text));
 });
 
+// Ad-hoc filter query: GET /tasks/query?q=(p1 | p2) & @work & 7 days
+tasksRouter.get('/query', async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  res.json(await taskService.runFilterQuery(userId(req), q));
+});
+
 tasksRouter.post('/search', async (req, res) => {
   res.json(await taskService.searchTasks(userId(req), taskSearchSchema.parse(req.body)));
 });

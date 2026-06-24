@@ -193,6 +193,23 @@ function migrations(): Migration[] {
         ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_rule TEXT;
       `,
     },
+    {
+      // Saved filters: a named filter-query (e.g. "(p1 | p2) & @work & 7 days").
+      id: '009_filters',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS filters (
+          id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name       TEXT NOT NULL,
+          query      TEXT NOT NULL,
+          color      TEXT,
+          position   INT NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS filters_user_idx ON filters (user_id);
+      `,
+    },
   ];
 }
 

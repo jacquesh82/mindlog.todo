@@ -8,6 +8,12 @@ import {
   type TaskTree,
   type TaskUpdateInput,
 } from '../domain/task.js';
+import {
+  compileFilter,
+  FilterError,
+  parseFilter,
+  referencedNames,
+} from '../domain/filter-query.js';
 import { parseQuickAdd, type QuickAddParse } from '../domain/quickadd.js';
 import { nextOccurrence, normalizeRecurrence, parseRecurrence } from '../domain/recurrence.js';
 import { embedOne } from '../embeddings/provider.js';
@@ -276,6 +282,30 @@ async function resolveQuickAdd(userId: string, parsed: QuickAddParse): Promise<Q
 
 export async function previewQuickAdd(userId: string, text: string): Promise<QuickAddPreview> {
   return resolveQuickAdd(userId, parseQuickAdd(text));
+}
+
+/** Run a Todoist-style filter query and return the matching tasks (with labels). */
+export async function runFilterQuery(userId: string, query: string): Promise<Task[]> {
+  let ast;
+  try {
+    ast = parseFilter(query);
+  } catch (err) {
+    if (err instanceof FilterError) throw BadRequest(`Invalid filter: ${err.message}`);
+    throw err;
+  }
+  const { labels, projects } = referencedNames(ast);
+  const labelIds = new Map<string, string>();
+  for (const name of labels) {
+    const l = await labelRepo.findByName(userId, name);
+    if (l) labelIds.set(name.toLowerCase(), l.id);
+  }
+  const projectIds = new Map<string, string>();
+  for (const name of projects) {
+    const p = await projectRepo.findByName(userId, name);
+    if (p) projectIds.set(name.toLowerCase(), p.id);
+  }
+  const { sql, params } = compileFilter(ast, { labelIds, projectIds }, 2);
+  return attachLabels(await repo.listByPredicate(userId, sql, params));
 }
 
 /** Parse a Quick Add line and create the task, creating any missing labels. */

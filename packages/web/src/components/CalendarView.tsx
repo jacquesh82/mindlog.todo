@@ -48,10 +48,8 @@ export function CalendarView({ tasks, labels, onEdit }: Props) {
   }
 
   const days = monthGrid(year, month);
-  const weekdays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(2026, 5, 1 + ((i + 1) % 7)); // a Monday-first week
-    return d.toLocaleDateString(lang, { weekday: 'short' });
-  });
+  // Derive the weekday headers from the first row so they always line up.
+  const weekdays = days.slice(0, 7).map((d) => d.toLocaleDateString(lang, { weekday: 'short' }));
   const monthLabel = cursor.toLocaleDateString(lang, { month: 'long', year: 'numeric' });
 
   const shift = (delta: number) => setCursor(new Date(year, month + delta, 1));

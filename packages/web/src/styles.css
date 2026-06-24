@@ -1,3 +1,22 @@
+@import 'tailwindcss';
+
+/* mindlog design tokens — a Todoist-like palette in mindlog red. Exposed to
+   Tailwind v4 utilities (e.g. bg-brand, text-brand) via @theme. */
+@theme {
+  --color-brand: #db4c3f;
+  --color-brand-hover: #c53727;
+  --color-brand-soft: #fde8e6;
+  --color-ink: #202020;
+  --color-muted: #808080;
+  --color-line: #ececec;
+  --color-surface: #ffffff;
+  --color-sidebar: #fafafa;
+  --color-p1: #d1453b;
+  --color-p2: #eb8909;
+  --color-p3: #246fe0;
+  --color-p4: #808080;
+}
+
 /* Light theme (default) */
 :root {
   --bg: #f6f7f9;

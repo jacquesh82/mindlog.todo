@@ -248,6 +248,12 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
         >
           {active === b.id && (
             <div className="absolute -top-9 left-0 flex items-center gap-0.5 rounded-md border border-line bg-surface px-1 py-0.5 text-sm shadow">
+              <button
+                onMouseDown={(e) => { e.preventDefault(); drag.current = { id: b.id, dx: 0, dy: 0 }; }}
+                className="cursor-move px-1 text-muted"
+                title={t('notes.move')}
+              >✥</button>
+              <span className="mx-0.5 text-line">|</span>
               <Tb onClick={() => exec('bold')} label="B" className="font-bold" />
               <Tb onClick={() => exec('italic')} label="I" className="italic" />
               <Tb onClick={() => exec('underline')} label="U" className="underline" />
@@ -295,11 +301,6 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
               ))}
               <span className="mx-0.5 text-line">|</span>
               <button onMouseDown={(e) => e.preventDefault()} onClick={() => createTask(b.id)} className="rounded px-1.5 text-xs text-brand hover:bg-brand-soft" title={t('notes.createTask')}>✓ {t('notes.task')}</button>
-              <button
-                onMouseDown={(e) => { e.preventDefault(); drag.current = { id: b.id, dx: 0, dy: 0 }; }}
-                className="cursor-move px-1 text-muted"
-                title={t('notes.move')}
-              >✥</button>
               <button onClick={() => removeBox(b.id)} className="px-1 text-muted hover:text-[var(--color-p1)]">🗑</button>
             </div>
           )}

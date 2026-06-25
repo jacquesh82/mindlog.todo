@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
 import { PRIORITY_COLOR } from '../format';
 import { useI18n, type Lang } from '../i18n';
-import type { Label, Task } from '../types';
+import type { ExternalEvent, Label, Task } from '../types';
 
 interface Props {
   tasks: Task[];
@@ -41,7 +42,18 @@ export function CalendarView({ tasks, labels, onEdit }: Props) {
   const { lang, t } = useI18n();
   const [mode, setMode] = useState<CalMode>('month');
   const [cursor, setCursor] = useState(() => new Date());
+  const [events, setEvents] = useState<ExternalEvent[]>([]);
   const todayKey = dayKey(new Date());
+
+  // Subscribed-calendar events (best-effort; ignore failures).
+  useEffect(() => {
+    void api.calendarEvents().then(setEvents).catch(() => setEvents([]));
+  }, []);
+  const eventsByDay = new Map<string, ExternalEvent[]>();
+  for (const e of events) {
+    const k = dayKey(new Date(e.start));
+    (eventsByDay.get(k) ?? eventsByDay.set(k, []).get(k)!).push(e);
+  }
 
   const byDay = new Map<string, Task[]>();
   let unscheduled = 0;
@@ -84,6 +96,21 @@ export function CalendarView({ tasks, labels, onEdit }: Props) {
     );
   }
 
+  function EventChip({ ev }: { ev: ExternalEvent }) {
+    const c = ev.color ?? '#808080';
+    return (
+      <div
+        title={`${ev.sourceName}: ${ev.summary}`}
+        className="flex w-full items-center gap-1 truncate rounded px-1 text-xs"
+        style={{ color: c, backgroundColor: `${c}1a` }}
+      >
+        <span aria-hidden>📅</span>
+        <span className="truncate">{ev.summary}</span>
+      </div>
+    );
+  }
+
+  const dayEvents = (k: string) => eventsByDay.get(k) ?? [];
   const weekDays = (anchor: Date) => Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(anchor), i));
 
   return (
@@ -119,8 +146,9 @@ export function CalendarView({ tasks, labels, onEdit }: Props) {
               <div key={k} className={`min-h-24 border-b border-r border-line p-1 ${inMonth ? '' : 'bg-sidebar/50'}`}>
                 <div className={`mb-1 text-right text-xs ${k === todayKey ? 'font-bold text-brand' : inMonth ? 'text-ink' : 'text-muted'}`}>{d.getDate()}</div>
                 <div className="space-y-0.5">
-                  {list.slice(0, 4).map((task) => <Chip key={task.id} task={task} />)}
-                  {list.length > 4 && <div className="px-1 text-xs text-muted">+{list.length - 4}</div>}
+                  {list.slice(0, 3).map((task) => <Chip key={task.id} task={task} />)}
+                  {dayEvents(k).slice(0, 2).map((ev) => <EventChip key={ev.uid} ev={ev} />)}
+                  {list.length > 3 && <div className="px-1 text-xs text-muted">+{list.length - 3}</div>}
                 </div>
               </div>
             );
@@ -140,6 +168,7 @@ export function CalendarView({ tasks, labels, onEdit }: Props) {
                 </div>
                 <div className="space-y-1 p-1">
                   {list.map((task) => <Chip key={task.id} task={task} withTime />)}
+                  {dayEvents(k).map((ev) => <EventChip key={ev.uid} ev={ev} />)}
                 </div>
               </div>
             );
@@ -155,7 +184,12 @@ export function CalendarView({ tasks, labels, onEdit }: Props) {
                 <Chip task={task} withTime />
               </li>
             ))}
-            {(byDay.get(dayKey(cursor)) ?? []).length === 0 && (
+            {dayEvents(dayKey(cursor)).map((ev) => (
+              <li key={ev.uid} className="px-3 py-2">
+                <EventChip ev={ev} />
+              </li>
+            ))}
+            {(byDay.get(dayKey(cursor)) ?? []).length === 0 && dayEvents(dayKey(cursor)).length === 0 && (
               <li className="px-3 py-6 text-center text-sm text-muted">{t('task.empty')}</li>
             )}
           </ul>

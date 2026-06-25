@@ -147,6 +147,27 @@ export interface Attachment {
   content?: string;
 }
 
+export interface CalendarSource {
+  id: string;
+  userId: string;
+  name: string;
+  url: string;
+  color: string | null;
+  lastSyncedAt: string | null;
+  createdAt: string;
+}
+
+export interface ExternalEvent {
+  uid: string;
+  summary: string;
+  start: string;
+  end: string | null;
+  allDay: boolean;
+  sourceId: string;
+  sourceName: string;
+  color: string | null;
+}
+
 export interface Karma {
   points: number;
   level: string;

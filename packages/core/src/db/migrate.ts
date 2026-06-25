@@ -274,6 +274,23 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS attachments_task_idx ON attachments (task_id);
       `,
     },
+    {
+      // External calendar feeds (an .ics URL over HTTP — incl. Google Calendar's
+      // secret iCal address) whose events are merged into the calendar view.
+      id: '014_calendar_sources',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS calendar_sources (
+          id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name           TEXT NOT NULL,
+          url            TEXT NOT NULL,
+          color          TEXT,
+          last_synced_at TIMESTAMPTZ,
+          created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS calendar_sources_user_idx ON calendar_sources (user_id);
+      `,
+    },
   ];
 }
 

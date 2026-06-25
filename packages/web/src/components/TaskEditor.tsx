@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { PRIORITY_COLOR } from '../format';
 import { useI18n } from '../i18n';
+import { useToast } from '../toast';
 import type { Attachment, Label, Project, Section, Task } from '../types';
 
 interface Props {
@@ -22,6 +23,7 @@ function toLocalInput(iso: string | null): string {
 
 export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) {
   const { t } = useI18n();
+  const { toast } = useToast();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? '');
   const [priority, setPriority] = useState(task.priority);
@@ -82,6 +84,7 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
         sectionId: sectionId || null,
         labelIds,
       });
+      toast(t('toast.taskSaved'));
       onSaved();
       onClose();
     } finally {

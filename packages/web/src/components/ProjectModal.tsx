@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api/client';
+import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
 import type { Project } from '../types';
 
@@ -19,6 +20,7 @@ interface Props {
 
 export function ProjectModal({ project, projects, onClose, onSaved }: Props) {
   const { t } = useI18n();
+  const dialog = useDialog();
   const [name, setName] = useState(project?.name ?? '');
   const [color, setColor] = useState(project?.color ?? PROJECT_COLORS[1]!);
   const [favorite, setFavorite] = useState(project?.isFavorite ?? false);
@@ -46,7 +48,8 @@ export function ProjectModal({ project, projects, onClose, onSaved }: Props) {
   }
 
   async function remove() {
-    if (!project || !confirm(t('project.deleteConfirm'))) return;
+    if (!project) return;
+    if (!(await dialog.confirm({ title: t('project.deleteConfirm'), danger: true, confirmLabel: t('task.delete') }))) return;
     setBusy(true);
     try {
       await api.deleteProject(project.id);

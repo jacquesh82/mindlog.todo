@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
+import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
-import { useToast } from '../toast';
 import type { Notebook, NotePage, NotePageSummary } from '../types';
 
 // A OneNote-lite 3-pane workspace: notebooks | pages | editor.
 export function NotesView() {
   const { t } = useI18n();
-  const { toast } = useToast();
+  const dialog = useDialog();
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [activeNb, setActiveNb] = useState<string | null>(null);
   const [pages, setPages] = useState<NotePageSummary[]>([]);
@@ -32,7 +32,7 @@ export function NotesView() {
   }, [activeNb, reloadPages]);
 
   async function addNotebook() {
-    const name = prompt(t('notes.notebookName'));
+    const name = await dialog.promptText({ title: t('notes.notebookName'), placeholder: t('notes.notebookName') });
     if (!name?.trim()) return;
     const nb = await api.createNotebook(name.trim(), '#246fe0');
     reloadNotebooks();
@@ -40,7 +40,7 @@ export function NotesView() {
   }
 
   async function deleteNotebook(id: string) {
-    if (!confirm(t('notes.deleteNotebook'))) return;
+    if (!(await dialog.confirm({ title: t('notes.deleteNotebook'), danger: true }))) return;
     await api.deleteNotebook(id);
     if (activeNb === id) {
       setActiveNb(null);

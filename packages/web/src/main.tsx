@@ -5,6 +5,7 @@ import { AuthProvider } from './auth/AuthContext';
 import { I18nProvider } from './i18n';
 import { applyTheme, getInitialTheme } from './theme';
 import { ToastProvider } from './toast';
+import { DialogProvider } from './dialog';
 import './styles.css';
 
 // Apply theme before first paint to avoid a flash.
@@ -14,9 +15,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
       <ToastProvider>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
+        <DialogProvider>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </DialogProvider>
       </ToastProvider>
     </I18nProvider>
   </StrictMode>,

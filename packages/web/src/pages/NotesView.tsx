@@ -2,12 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
+import { useToast } from '../toast';
+import { NotesEditor } from '../components/NotesEditor';
 import type { Notebook, NotePage, NotePageSummary } from '../types';
 
 // A OneNote-lite 3-pane workspace: notebooks | pages | editor.
 export function NotesView() {
   const { t } = useI18n();
   const dialog = useDialog();
+  const { toast } = useToast();
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [activeNb, setActiveNb] = useState<string | null>(null);
   const [pages, setPages] = useState<NotePageSummary[]>([]);
@@ -66,6 +69,12 @@ export function NotesView() {
     await api.deletePage(id);
     if (page?.id === id) setPage(null);
     if (activeNb) reloadPages(activeNb);
+  }
+
+  /** Turn a note line into a real task (lands in the Inbox / normal task lists). */
+  async function createTaskFromNote(text: string) {
+    const task = await api.createTask({ title: text.slice(0, 500) });
+    toast(t('toast.taskCreated', { title: task.title }));
   }
 
   // Debounced autosave of the open page.
@@ -136,7 +145,7 @@ export function NotesView() {
       {/* Editor pane */}
       <div className="flex-1 overflow-y-auto">
         {page ? (
-          <div className="mx-auto max-w-3xl px-8 py-6">
+          <div className="mx-auto max-w-4xl px-8 py-6">
             <input
               value={page.title}
               onChange={(e) => edit({ title: e.target.value })}
@@ -144,11 +153,11 @@ export function NotesView() {
               className="w-full border-b border-line pb-2 text-2xl font-bold text-ink outline-none"
             />
             <div className="mt-1 text-right text-xs text-muted">{saved ? t('notes.saved') : t('notes.saving')}</div>
-            <textarea
-              value={page.content}
-              onChange={(e) => edit({ content: e.target.value })}
-              placeholder={t('notes.placeholder')}
-              className="mt-3 min-h-[60vh] w-full resize-none text-sm leading-relaxed text-ink outline-none"
+            <NotesEditor
+              key={page.id}
+              initialContent={page.content}
+              onChange={(content) => edit({ content })}
+              onCreateTask={createTaskFromNote}
             />
           </div>
         ) : (

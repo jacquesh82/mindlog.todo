@@ -107,6 +107,26 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
     commit(boxes.map((b) => (b.id === id ? { ...b, html } : b)));
   }
 
+  // Paste an image from the clipboard as an inline image block.
+  function onPaste(id: string, e: React.ClipboardEvent<HTMLDivElement>) {
+    const item = Array.from(e.clipboardData.items).find((it) => it.type.startsWith('image/'));
+    if (!item) return;
+    const file = item.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    const reader = new FileReader();
+    reader.onload = () => {
+      document.execCommand(
+        'insertHTML',
+        false,
+        `<img src="${reader.result}" style="max-width:100%;border-radius:6px;display:block;margin:6px 0"/><div><br></div>`,
+      );
+      const el = document.getElementById(`box-${id}`);
+      if (el) updateHtml(id, el.innerHTML);
+    };
+    reader.readAsDataURL(file);
+  }
+
   function removeBox(id: string) {
     commit(boxes.filter((b) => b.id !== id));
     setActive(null);
@@ -169,6 +189,7 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
             contentEditable
             suppressContentEditableWarning
             onFocus={() => setActive(b.id)}
+            onPaste={(e) => onPaste(b.id, e)}
             onInput={(e) => updateHtml(b.id, (e.target as HTMLDivElement).innerHTML)}
             dangerouslySetInnerHTML={{ __html: b.html }}
             className="min-h-6 rounded-md px-2 py-1 text-sm leading-relaxed text-ink outline-none"

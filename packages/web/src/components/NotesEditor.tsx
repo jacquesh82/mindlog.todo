@@ -31,6 +31,22 @@ function parseBoxes(content: string): Box[] {
 
 const HIGHLIGHTS = ['#fff3a3', '#bde7c5', '#bcd9ff', '#ffc9d4', 'transparent'];
 
+const FONTS = [
+  { label: 'Sans', value: 'system-ui, sans-serif' },
+  { label: 'Serif', value: 'Georgia, serif' },
+  { label: 'Mono', value: 'ui-monospace, monospace' },
+  { label: 'Rounded', value: '"Comic Sans MS", "Segoe Print", cursive' },
+];
+// execCommand('fontSize') uses the legacy 1–7 scale.
+const SIZES = [
+  { label: 'XS', value: '1' },
+  { label: 'S', value: '2' },
+  { label: 'M', value: '3' },
+  { label: 'L', value: '5' },
+  { label: 'XL', value: '6' },
+  { label: 'XXL', value: '7' },
+];
+
 interface Props {
   initialContent: string;
   onChange: (content: string) => void;
@@ -43,7 +59,39 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
   const [active, setActive] = useState<string | null>(null);
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const rez = useRef<{ id: string; startW: number; startX: number } | null>(null);
+  const savedRange = useRef<Range | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Keep the last selection made inside a note box, so toolbar controls that
+  // steal focus (selects, colour input) can restore it before applying a style.
+  useEffect(() => {
+    const handler = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const r = sel.getRangeAt(0);
+      const node = r.commonAncestorContainer;
+      const el = node.nodeType === 1 ? (node as Element) : node.parentElement;
+      if (el?.closest('.notes-box')) savedRange.current = r.cloneRange();
+    };
+    document.addEventListener('selectionchange', handler);
+    return () => document.removeEventListener('selectionchange', handler);
+  }, []);
+
+  /** Restore the saved selection, run a styling command, then persist. */
+  function applyStyle(run: () => void) {
+    const r = savedRange.current;
+    if (!r) return;
+    const node = r.commonAncestorContainer;
+    const box = ((node.nodeType === 1 ? (node as Element) : node.parentElement)?.closest('.notes-box')) as HTMLElement | null;
+    if (!box) return;
+    box.focus();
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(r);
+    document.execCommand('styleWithCSS', false, 'true');
+    run();
+    updateHtml(box.id.replace('box-', ''), box.innerHTML);
+  }
 
   // Persist (debounced) whenever boxes change.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -167,24 +215,50 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
           onMouseDown={() => setActive(b.id)}
         >
           {active === b.id && (
-            <div className="absolute -top-9 left-0 flex items-center gap-0.5 rounded-md border border-line bg-surface px-1 py-0.5 text-sm shadow"
-              onMouseDown={(e) => e.preventDefault()}>
+            <div className="absolute -top-9 left-0 flex items-center gap-0.5 rounded-md border border-line bg-surface px-1 py-0.5 text-sm shadow">
               <Tb onClick={() => exec('bold')} label="B" className="font-bold" />
               <Tb onClick={() => exec('italic')} label="I" className="italic" />
               <Tb onClick={() => exec('underline')} label="U" className="underline" />
+              <span className="mx-0.5 text-line">|</span>
+              <select
+                value=""
+                title={t('notes.font')}
+                onChange={(e) => { const v = e.target.value; if (v) applyStyle(() => document.execCommand('fontName', false, v)); }}
+                className="h-6 rounded border border-line bg-surface px-1 text-xs text-ink outline-none"
+              >
+                <option value="">{t('notes.font')}</option>
+                {FONTS.map((f) => <option key={f.label} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
+              </select>
+              <select
+                value=""
+                title={t('notes.size')}
+                onChange={(e) => { const v = e.target.value; if (v) applyStyle(() => document.execCommand('fontSize', false, v)); }}
+                className="h-6 rounded border border-line bg-surface px-1 text-xs text-ink outline-none"
+              >
+                <option value="">{t('notes.size')}</option>
+                {SIZES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <label className="flex h-6 w-6 cursor-pointer items-center justify-center rounded hover:bg-line/60" title={t('notes.color')}>
+                <span className="text-xs" style={{ color: 'var(--color-brand)' }}>A</span>
+                <input
+                  type="color"
+                  className="sr-only"
+                  onChange={(e) => applyStyle(() => document.execCommand('foreColor', false, e.target.value))}
+                />
+              </label>
               <span className="mx-0.5 text-line">|</span>
               <Tb onClick={() => exec('insertUnorderedList')} label="•" />
               <Tb onClick={() => exec('insertOrderedList')} label="1." />
               <Tb onClick={() => insertTable()} label="⊞" />
               <span className="mx-0.5 text-line">|</span>
               {HIGHLIGHTS.map((c) => (
-                <button key={c} onClick={() => exec('hiliteColor', c)} title={t('notes.highlight')}
+                <button key={c} onMouseDown={(e) => e.preventDefault()} onClick={() => exec('hiliteColor', c)} title={t('notes.highlight')}
                   className="h-4 w-4 rounded-sm border border-line" style={{ backgroundColor: c === 'transparent' ? undefined : c }}>
                   {c === 'transparent' ? '⌀' : ''}
                 </button>
               ))}
               <span className="mx-0.5 text-line">|</span>
-              <button onClick={() => createTask(b.id)} className="rounded px-1.5 text-xs text-brand hover:bg-brand-soft" title={t('notes.createTask')}>✓ {t('notes.task')}</button>
+              <button onMouseDown={(e) => e.preventDefault()} onClick={() => createTask(b.id)} className="rounded px-1.5 text-xs text-brand hover:bg-brand-soft" title={t('notes.createTask')}>✓ {t('notes.task')}</button>
               <button
                 onMouseDown={(e) => { e.preventDefault(); drag.current = { id: b.id, dx: 0, dy: 0 }; }}
                 className="cursor-move px-1 text-muted"
@@ -252,7 +326,11 @@ function EditableContent({
 
 function Tb({ onClick, label, className }: { onClick: () => void; label: string; className?: string }) {
   return (
-    <button onClick={onClick} className={`h-6 w-6 rounded text-ink hover:bg-line/60 ${className ?? ''}`}>
+    <button
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className={`h-6 w-6 rounded text-ink hover:bg-line/60 ${className ?? ''}`}
+    >
       {label}
     </button>
   );

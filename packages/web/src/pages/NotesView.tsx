@@ -85,6 +85,13 @@ export function NotesView() {
     await Promise.all(next.map((p, i) => (p.position === i ? null : api.updatePage(p.id, { position: i }))).filter(Boolean));
   }
 
+  async function toggleRag() {
+    if (!page) return;
+    const updated = await api.updatePage(page.id, { inRag: !page.inRag });
+    setPage((p) => (p ? { ...p, inRag: updated.inRag } : p));
+    toast(updated.inRag ? t('notes.ragOn') : t('notes.ragOff'));
+  }
+
   /** Turn a note line into a real task (lands in the Inbox / normal task lists). */
   async function createTaskFromNote(text: string) {
     const task = await api.createTask({ title: text.slice(0, 500) });
@@ -177,7 +184,16 @@ export function NotesView() {
               placeholder={t('notes.untitled')}
               className="w-full border-b border-line pb-2 text-2xl font-bold text-ink outline-none"
             />
-            <div className="mt-1 text-right text-xs text-muted">{saved ? t('notes.saved') : t('notes.saving')}</div>
+            <div className="mt-1 flex items-center justify-between text-xs text-muted">
+              <button
+                onClick={() => void toggleRag()}
+                title={t('notes.ragHint')}
+                className={`rounded-md border px-2 py-0.5 ${page.inRag ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted hover:text-ink'}`}
+              >
+                {page.inRag ? `🧠 ${t('notes.ragOnLabel')}` : `🧠 ${t('notes.ragAdd')}`}
+              </button>
+              <span>{saved ? t('notes.saved') : t('notes.saving')}</span>
+            </div>
             <NotesEditor
               key={page.id}
               initialContent={page.content}

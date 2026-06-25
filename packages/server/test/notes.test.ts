@@ -1,4 +1,4 @@
-import { closePool } from '@mindlog/core';
+import { closePool, noteService } from '@mindlog/core';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/rest/app.js';
@@ -44,6 +44,29 @@ describe('notes (OneNote-lite)', () => {
     await request(app).delete(`/api/v1/notes/notebooks/${nb.body.id}`).set(auth(token));
     const after = await request(app).get(`/api/v1/notes/pages/${page.body.id}`).set(auth(token));
     expect(after.status).toBe(404);
+  });
+
+  it('opts a page into the RAG so it becomes semantically searchable', async () => {
+    const reg = await request(app).post('/api/v1/auth/register').send({ email: 'rag@ex.com', password: 'password123' });
+    const token = reg.body.accessToken as string;
+    const userId = reg.body.user.id as string;
+    const nb = await request(app).post('/api/v1/notes/notebooks').set(auth(token)).send({ name: 'NB' });
+    const page = await request(app)
+      .post(`/api/v1/notes/notebooks/${nb.body.id}/pages`)
+      .set(auth(token))
+      .send({ title: 'Budget', content: 'quarterly budget and hiring plan' });
+
+    // Not in RAG yet → no hits.
+    expect(await noteService.searchPages(userId, 'budget hiring', 5)).toHaveLength(0);
+
+    // Opt in → embedded → searchable.
+    await request(app).patch(`/api/v1/notes/pages/${page.body.id}`).set(auth(token)).send({ inRag: true });
+    const hits = await noteService.searchPages(userId, 'budget hiring', 5);
+    expect(hits.map((h) => h.id)).toContain(page.body.id);
+
+    // Opt out → no longer searchable.
+    await request(app).patch(`/api/v1/notes/pages/${page.body.id}`).set(auth(token)).send({ inRag: false });
+    expect(await noteService.searchPages(userId, 'budget hiring', 5)).toHaveLength(0);
   });
 
   it('isolates notebooks per user', async () => {

@@ -115,6 +115,7 @@ export interface AuthResult {
 export interface AskResult {
   answer: string;
   sources: Task[];
+  noteSources?: { id: string; title: string; notebookId: string }[];
 }
 
 export interface AiLog {
@@ -164,6 +165,7 @@ export interface NotePage {
   title: string;
   content: string;
   position: number;
+  inRag: boolean;
   createdAt: string;
   updatedAt: string;
 }

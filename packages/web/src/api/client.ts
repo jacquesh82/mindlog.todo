@@ -231,7 +231,7 @@ export const api = {
   getPage(id: string): Promise<NotePage> {
     return request<NotePage>(`/api/v1/notes/pages/${id}`);
   },
-  updatePage(id: string, patch: { title?: string; content?: string; position?: number }): Promise<NotePage> {
+  updatePage(id: string, patch: { title?: string; content?: string; position?: number; inRag?: boolean }): Promise<NotePage> {
     return request<NotePage>(`/api/v1/notes/pages/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
   },
   deletePage(id: string): Promise<void> {

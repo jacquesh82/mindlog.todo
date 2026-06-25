@@ -144,6 +144,8 @@ export interface TaskSearchHit extends Task {
 export interface TaskAskResult {
   answer: string;
   sources: Task[];
+  /** RAG-enabled note pages that informed the answer. */
+  noteSources?: { id: string; title: string; notebookId: string }[];
 }
 
 /** Text used to embed a task for semantic search. */

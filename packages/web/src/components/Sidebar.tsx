@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n, type Lang } from '../i18n';
 import type { Filter, Karma, Label, Project } from '../types';
@@ -6,6 +6,7 @@ import type { View } from '../app/view';
 import { FilterModal } from './FilterModal';
 import { LabelModal } from './LabelModal';
 import { ProjectModal } from './ProjectModal';
+import { FunnelIcon, HashIcon, TagIcon } from './SidebarIcons';
 
 interface Props {
   projects: Project[];
@@ -20,16 +21,17 @@ interface Props {
 function Item({
   active,
   icon,
+  glyph,
   label,
   count,
-  color,
   onClick,
 }: {
   active: boolean;
-  icon: string;
+  icon?: string;
+  /** A coloured SVG glyph; overrides the text `icon`. */
+  glyph?: ReactNode;
   label: string;
   count?: number;
-  color?: string | null;
   onClick: () => void;
 }) {
   return (
@@ -39,8 +41,8 @@ function Item({
         active ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'
       }`}
     >
-      {color ? (
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+      {glyph ? (
+        <span className="flex w-4 shrink-0 justify-center">{glyph}</span>
       ) : (
         <span className="w-4 text-center">{icon}</span>
       )}
@@ -100,10 +102,10 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
         {hasFavorites && (
           <Section title={t('nav.favorites')}>
             {favProjects.map((p) => (
-              <Item key={p.id} active={is('project', p.id)} icon="#" color={p.color} label={p.name} onClick={() => onSelect({ kind: 'project', id: p.id })} />
+              <Item key={p.id} active={is('project', p.id)} glyph={<HashIcon color={p.color} />} label={p.name} onClick={() => onSelect({ kind: 'project', id: p.id })} />
             ))}
             {favLabels.map((l) => (
-              <Item key={l.id} active={is('label', l.id)} icon="@" color={l.color} label={l.name} onClick={() => onSelect({ kind: 'label', id: l.id })} />
+              <Item key={l.id} active={is('label', l.id)} glyph={<TagIcon color={l.color} />} label={l.name} onClick={() => onSelect({ kind: 'label', id: l.id })} />
             ))}
           </Section>
         )}
@@ -120,8 +122,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
             <EditableRow
               key={f.id}
               active={is('filter', f.id)}
-              icon="🔎"
-              color={f.color}
+              glyph={<FunnelIcon color={f.color} />}
               label={f.name}
               onOpen={() => onSelect({ kind: 'filter', id: f.id })}
               onEdit={() => setFilterModal(f)}
@@ -146,8 +147,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
             <EditableRow
               key={l.id}
               active={is('label', l.id)}
-              icon="@"
-              color={l.color}
+              glyph={<TagIcon color={l.color} />}
               label={l.name}
               onOpen={() => onSelect({ kind: 'label', id: l.id })}
               onEdit={() => setLabelModal(l)}
@@ -228,18 +228,16 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
   );
 }
 
-/** A coloured nav row with a hover ⋯ edit affordance (filters, labels). */
+/** A nav row with a coloured glyph and a hover ⋯ edit affordance (filters, labels). */
 function EditableRow({
   active,
-  icon,
-  color,
+  glyph,
   label,
   onOpen,
   onEdit,
 }: {
   active: boolean;
-  icon: string;
-  color: string | null;
+  glyph: ReactNode;
   label: string;
   onOpen: () => void;
   onEdit: () => void;
@@ -252,11 +250,7 @@ function EditableRow({
           active ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'
         }`}
       >
-        {color ? (
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-        ) : (
-          <span className="w-4 text-center">{icon}</span>
-        )}
+        <span className="flex w-4 shrink-0 justify-center">{glyph}</span>
         <span className="flex-1 truncate">{label}</span>
       </button>
       <button
@@ -290,7 +284,9 @@ function ProjectRow({
           active ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'
         }`}
       >
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.color ?? '#808080' }} />
+        <span className="flex w-4 shrink-0 justify-center">
+          <HashIcon color={project.color} />
+        </span>
         <span className="flex-1 truncate">{project.name}</span>
         {project.isFavorite && <span className="text-xs">★</span>}
       </button>

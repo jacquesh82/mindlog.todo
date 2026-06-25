@@ -320,6 +320,17 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS note_pages_notebook_idx ON note_pages (notebook_id);
       `,
     },
+    {
+      // Opt a note page into the RAG: its text is embedded and retrieved by the
+      // semantic "ask" alongside tasks.
+      id: '016_note_rag',
+      sql: /* sql */ `
+        ALTER TABLE note_pages ADD COLUMN IF NOT EXISTS in_rag BOOLEAN NOT NULL DEFAULT false;
+        ALTER TABLE note_pages ADD COLUMN IF NOT EXISTS embedding VECTOR(${dim});
+        CREATE INDEX IF NOT EXISTS note_pages_embedding_idx
+          ON note_pages USING hnsw (embedding vector_cosine_ops);
+      `,
+    },
   ];
 }
 

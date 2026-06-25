@@ -2,13 +2,16 @@ import type {
   Notebook,
   NotebookUpdateInput,
   NotePage,
+  NotePageHit,
   NotePageSummary,
   PageUpdateInput,
 } from '../domain/note.js';
-import { getPool } from '../db/pool.js';
+import { getPool, toVectorLiteral } from '../db/pool.js';
 
 const NB_COLS = `id, user_id, name, color, position, created_at, updated_at`;
-const PAGE_COLS = `id, notebook_id, user_id, title, content, position, created_at, updated_at`;
+const PAGE_COLS = `id, notebook_id, user_id, title, content, position, in_rag, created_at, updated_at`;
+// Same columns minus the (large) content, for lists / search hits.
+const PAGE_LIST_COLS = `id, notebook_id, user_id, title, position, in_rag, created_at, updated_at`;
 
 interface NbRow {
   id: string; user_id: string; name: string; color: string | null;
@@ -16,7 +19,7 @@ interface NbRow {
 }
 interface PageRow {
   id: string; notebook_id: string; user_id: string; title: string; content: string;
-  position: number; created_at: Date; updated_at: Date;
+  position: number; in_rag: boolean; created_at: Date; updated_at: Date; score?: number;
 }
 
 const nb = (r: NbRow): Notebook => ({
@@ -24,8 +27,9 @@ const nb = (r: NbRow): Notebook => ({
   createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
 });
 const page = (r: PageRow): NotePage => ({
-  id: r.id, notebookId: r.notebook_id, userId: r.user_id, title: r.title, content: r.content,
-  position: r.position, createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
+  id: r.id, notebookId: r.notebook_id, userId: r.user_id, title: r.title, content: r.content ?? '',
+  position: r.position, inRag: r.in_rag,
+  createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
 });
 
 // --- Notebooks ---
@@ -86,11 +90,36 @@ export async function insertPage(userId: string, notebookId: string, title: stri
 
 export async function listPages(userId: string, notebookId: string): Promise<NotePageSummary[]> {
   const { rows } = await getPool().query<PageRow>(
-    `SELECT id, notebook_id, user_id, title, '' AS content, position, created_at, updated_at
+    `SELECT ${PAGE_LIST_COLS}, '' AS content
      FROM note_pages WHERE user_id = $1 AND notebook_id = $2 ORDER BY position, created_at`,
     [userId, notebookId],
   );
   return rows.map(page).map(({ content: _c, ...rest }) => rest);
+}
+
+/** Store (or clear, when vec is null) a page's RAG embedding. */
+export async function setEmbedding(id: string, vec: number[] | null): Promise<void> {
+  await getPool().query(
+    'UPDATE note_pages SET embedding = $2::vector WHERE id = $1',
+    [id, vec ? toVectorLiteral(vec) : null],
+  );
+}
+
+/** Semantic search over a user's RAG-enabled note pages. */
+export async function search(userId: string, queryVec: number[], k: number): Promise<NotePageHit[]> {
+  const vec = toVectorLiteral(queryVec);
+  const { rows } = await getPool().query<PageRow>(
+    `SELECT ${PAGE_LIST_COLS}, '' AS content, 1 - (embedding <=> $2::vector) AS score
+     FROM note_pages
+     WHERE user_id = $1 AND in_rag AND embedding IS NOT NULL
+     ORDER BY embedding <=> $2::vector
+     LIMIT $3`,
+    [userId, vec, k],
+  );
+  return rows.map((r) => {
+    const { content: _c, ...rest } = page(r);
+    return { ...rest, score: Number(r.score ?? 0) };
+  });
 }
 
 export async function countPages(userId: string, notebookId: string): Promise<number> {
@@ -116,6 +145,7 @@ export async function updatePage(userId: string, id: string, patch: PageUpdateIn
   if (patch.title !== undefined) { sets.push(`title = $${i++}`); vals.push(patch.title); }
   if (patch.content !== undefined) { sets.push(`content = $${i++}`); vals.push(patch.content); }
   if (patch.position !== undefined) { sets.push(`position = $${i++}`); vals.push(patch.position); }
+  if (patch.inRag !== undefined) { sets.push(`in_rag = $${i++}`); vals.push(patch.inRag); }
   sets.push('updated_at = now()');
   const { rows } = await getPool().query<PageRow>(
     `UPDATE note_pages SET ${sets.join(', ')} WHERE user_id = $1 AND id = $2 RETURNING ${PAGE_COLS}`,

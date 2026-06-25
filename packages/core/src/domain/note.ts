@@ -20,6 +20,7 @@ const PAGE_CONTENT_MAX = 12_000_000;
 export const pageCreateSchema = z.object({
   title: z.string().max(300).optional(),
   content: z.string().max(PAGE_CONTENT_MAX).optional(),
+  inRag: z.boolean().optional(),
 });
 export type PageCreateInput = z.infer<typeof pageCreateSchema>;
 
@@ -27,6 +28,7 @@ export const pageUpdateSchema = z.object({
   title: z.string().max(300).optional(),
   content: z.string().max(PAGE_CONTENT_MAX).optional(),
   position: z.number().int().min(0).optional(),
+  inRag: z.boolean().optional(),
 });
 export type PageUpdateInput = z.infer<typeof pageUpdateSchema>;
 
@@ -47,9 +49,29 @@ export interface NotePage {
   title: string;
   content: string;
   position: number;
+  inRag: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 /** A page without its (potentially large) content, for list views. */
 export type NotePageSummary = Omit<NotePage, 'content'>;
+
+export interface NotePageHit extends NotePageSummary {
+  score: number;
+}
+
+/** Plain-text of a page (title + de-HTML'd box content) for embedding. */
+export function notePageText(title: string, content: string): string {
+  const strip = (html: string) =>
+    html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim();
+  let body = '';
+  try {
+    const parsed = JSON.parse(content) as { boxes?: { html: string }[] };
+    if (parsed && Array.isArray(parsed.boxes)) body = parsed.boxes.map((b) => strip(b.html)).join('\n');
+    else body = strip(content);
+  } catch {
+    body = strip(content);
+  }
+  return [title, body].filter(Boolean).join('\n').trim();
+}

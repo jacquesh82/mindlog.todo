@@ -79,6 +79,13 @@ export function SearchAskView({ projects, labels, onChanged }: { projects: Proje
               ))}
             </ul>
           )}
+          {answer.noteSources && answer.noteSources.length > 0 && (
+            <ul className="mt-2 space-y-1 text-xs text-muted">
+              {answer.noteSources.map((n, i) => (
+                <li key={n.id}>📓 [N{i + 1}] {n.title}</li>
+              ))}
+            </ul>
+          )}
           <p className="mt-3 text-xs text-muted">{t('search.tokenNote')}</p>
         </div>
       )}

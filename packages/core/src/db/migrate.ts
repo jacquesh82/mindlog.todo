@@ -291,6 +291,35 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS calendar_sources_user_idx ON calendar_sources (user_id);
       `,
     },
+    {
+      // Notes (OneNote-lite): notebooks contain pages. Pages hold plain/markdown
+      // text content.
+      id: '015_notes',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS notebooks (
+          id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name       TEXT NOT NULL,
+          color      TEXT,
+          position   INT NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS notebooks_user_idx ON notebooks (user_id);
+
+        CREATE TABLE IF NOT EXISTS note_pages (
+          id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          notebook_id UUID NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
+          user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          title       TEXT NOT NULL DEFAULT 'Untitled',
+          content     TEXT NOT NULL DEFAULT '',
+          position    INT NOT NULL DEFAULT 0,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS note_pages_notebook_idx ON note_pages (notebook_id);
+      `,
+    },
   ];
 }
 

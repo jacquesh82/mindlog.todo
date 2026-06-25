@@ -35,6 +35,7 @@ function titleFor(
     case 'label': return '@' + (labels.find((l) => l.id === view.id)?.name ?? '');
     case 'filter': return filters.find((f) => f.id === view.id)?.name ?? '';
     case 'search':
+    case 'notes':
     case 'settings': return '';
   }
 }
@@ -59,6 +60,7 @@ async function loadTasks(view: View, showCompleted: boolean): Promise<Task[]> {
     case 'filter':
       return api.runFilter(view.id);
     case 'search':
+    case 'notes':
     case 'settings':
       return [];
   }

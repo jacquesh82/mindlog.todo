@@ -5,6 +5,7 @@ import { LoginPage } from './auth/LoginPage';
 import { MainView } from './components/MainView';
 import { Sidebar } from './components/Sidebar';
 import { useI18n } from './i18n';
+import { NotesView } from './pages/NotesView';
 import { ProjectView } from './pages/ProjectView';
 import { SearchAskView } from './pages/SearchAskView';
 import { SettingsPage } from './pages/SettingsPage';
@@ -80,6 +81,7 @@ export function App() {
         {(() => {
           if (view.kind === 'settings') return <SettingsPage />;
           if (view.kind === 'search') return <SearchAskView projects={projects} labels={labels} onChanged={reloadSidebar} />;
+          if (view.kind === 'notes') return <NotesView />;
           if (view.kind === 'project' || view.kind === 'inbox') {
             const project = projects.find((p) => p.id === view.id);
             if (project) {

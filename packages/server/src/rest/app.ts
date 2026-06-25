@@ -14,6 +14,7 @@ import { calendarRouter } from './calendar.routes.js';
 import { filtersRouter } from './filters.routes.js';
 import { karmaRouter } from './karma.routes.js';
 import { labelsRouter } from './labels.routes.js';
+import { notesRouter } from './notes.routes.js';
 import { projectsRouter } from './projects.routes.js';
 import { sectionsRouter } from './sections.routes.js';
 import { tasksRouter } from './tasks.routes.js';
@@ -54,6 +55,7 @@ export function createApp(): Express {
   app.use('/api/v1/ai', aiRouter);
   app.use('/api/v1/karma', karmaRouter);
   app.use('/api/v1/calendar', calendarRouter);
+  app.use('/api/v1/notes', notesRouter);
   app.use('/api/v1/attachments', attachmentsRouter);
   app.use('/api/v1/tasks', tasksRouter);
 

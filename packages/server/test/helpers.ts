@@ -8,6 +8,6 @@ export async function ensureSchema(): Promise<void> {
 /** Wipe all data between tests. */
 export async function resetDb(): Promise<void> {
   await getPool().query(
-    'TRUNCATE calendar_sources, attachments, karma_events, ai_logs, filters, task_labels, labels, sections, projects, tasks, api_keys, refresh_tokens, users RESTART IDENTITY CASCADE',
+    'TRUNCATE note_pages, notebooks, calendar_sources, attachments, karma_events, ai_logs, filters, task_labels, labels, sections, projects, tasks, api_keys, refresh_tokens, users RESTART IDENTITY CASCADE',
   );
 }

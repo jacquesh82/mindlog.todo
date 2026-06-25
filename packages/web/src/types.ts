@@ -147,6 +147,29 @@ export interface Attachment {
   content?: string;
 }
 
+export interface Notebook {
+  id: string;
+  userId: string;
+  name: string;
+  color: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotePage {
+  id: string;
+  notebookId: string;
+  userId: string;
+  title: string;
+  content: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type NotePageSummary = Omit<NotePage, 'content'>;
+
 export interface CalendarSource {
   id: string;
   userId: string;

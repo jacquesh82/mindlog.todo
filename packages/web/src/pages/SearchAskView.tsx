@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { EmptyState, SearchEmptyArt } from '../components/Illustrations';
+import { TaskEditor } from '../components/TaskEditor';
 import { useI18n } from '../i18n';
-import type { AskResult, TaskHit } from '../types';
+import type { AskResult, Label, Project, Task, TaskHit } from '../types';
 
-export function SearchAskView() {
+export function SearchAskView({ projects, labels, onChanged }: { projects: Project[]; labels: Label[]; onChanged: () => void }) {
   const { t } = useI18n();
+  const [editing, setEditing] = useState<Task | null>(null);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<TaskHit[] | null>(null);
   const [answer, setAnswer] = useState<AskResult | null>(null);
@@ -67,9 +69,13 @@ export function SearchAskView() {
         <div className="mt-5 rounded-lg border border-line p-4">
           <p className="whitespace-pre-wrap text-sm text-ink">{answer.answer}</p>
           {answer.sources.length > 0 && (
-            <ul className="mt-3 space-y-1 text-xs text-muted">
+            <ul className="mt-3 space-y-1 text-xs">
               {answer.sources.map((s, i) => (
-                <li key={s.id}>[{i + 1}] {s.title}</li>
+                <li key={s.id}>
+                  <button onClick={() => setEditing(s)} className="text-muted hover:text-brand">
+                    [{i + 1}] {s.title}
+                  </button>
+                </li>
               ))}
             </ul>
           )}
@@ -83,12 +89,27 @@ export function SearchAskView() {
       {hits && hits.length > 0 && (
         <ul className="mt-5 divide-y divide-line">
           {hits.map((h) => (
-            <li key={h.id} className="flex items-center gap-2 py-2 text-sm">
-              <span className="flex-1 text-ink">{h.title}</span>
-              <span className="text-xs text-muted">{(h.score * 100).toFixed(0)}%</span>
+            <li key={h.id}>
+              <button
+                onClick={() => setEditing(h)}
+                className="flex w-full items-center gap-2 py-2 text-left text-sm hover:text-brand"
+              >
+                <span className="flex-1 text-ink">{h.title}</span>
+                <span className="text-xs text-muted">{(h.score * 100).toFixed(0)}%</span>
+              </button>
             </li>
           ))}
         </ul>
+      )}
+
+      {editing && (
+        <TaskEditor
+          task={editing}
+          projects={projects}
+          labels={labels}
+          onClose={() => setEditing(null)}
+          onSaved={onChanged}
+        />
       )}
     </div>
   );

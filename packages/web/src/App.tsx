@@ -53,6 +53,15 @@ export function App() {
         <div className="login-shell">
           <LoginPage />
         </div>
+        <a
+          href="https://id.mindlog.localhost"
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs hover:underline"
+          style={{ color: 'var(--color-muted)' }}
+        >
+          {t('login.mindlogId')} ↗
+        </a>
       </div>
     );
 
@@ -70,7 +79,7 @@ export function App() {
       <main className="flex-1 overflow-y-auto">
         {(() => {
           if (view.kind === 'settings') return <SettingsPage />;
-          if (view.kind === 'search') return <SearchAskView />;
+          if (view.kind === 'search') return <SearchAskView projects={projects} labels={labels} onChanged={reloadSidebar} />;
           if (view.kind === 'project' || view.kind === 'inbox') {
             const project = projects.find((p) => p.id === view.id);
             if (project) {

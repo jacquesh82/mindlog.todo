@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { api } from '../api/client';
 import { useI18n } from '../i18n';
+import { useToast } from '../toast';
 import type { Label, Project } from '../types';
 
 interface Props {
@@ -20,6 +21,7 @@ interface Suggest {
 /** Inline natural-language task capture with #project / @label autocomplete. */
 export function QuickAdd({ defaultProjectId, defaultSectionId, projects, labels, onAdded }: Props) {
   const { t } = useI18n();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -68,6 +70,7 @@ export function QuickAdd({ defaultProjectId, defaultSectionId, projects, labels,
       if (defaultSectionId) patch.sectionId = defaultSectionId;
       if (patch.projectId || patch.sectionId) await api.updateTask(task.id, patch);
       setText('');
+      toast(t('toast.taskCreated', { title: task.title }));
       onAdded();
     } finally {
       setBusy(false);

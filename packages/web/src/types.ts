@@ -166,6 +166,7 @@ export interface NotePage {
   content: string;
   position: number;
   inRag: boolean;
+  color: string | null;
   createdAt: string;
   updatedAt: string;
 }

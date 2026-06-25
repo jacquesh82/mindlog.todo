@@ -9,9 +9,9 @@ import type {
 import { getPool, toVectorLiteral } from '../db/pool.js';
 
 const NB_COLS = `id, user_id, name, color, position, created_at, updated_at`;
-const PAGE_COLS = `id, notebook_id, user_id, title, content, position, in_rag, created_at, updated_at`;
+const PAGE_COLS = `id, notebook_id, user_id, title, content, position, in_rag, color, created_at, updated_at`;
 // Same columns minus the (large) content, for lists / search hits.
-const PAGE_LIST_COLS = `id, notebook_id, user_id, title, position, in_rag, created_at, updated_at`;
+const PAGE_LIST_COLS = `id, notebook_id, user_id, title, position, in_rag, color, created_at, updated_at`;
 
 interface NbRow {
   id: string; user_id: string; name: string; color: string | null;
@@ -19,7 +19,7 @@ interface NbRow {
 }
 interface PageRow {
   id: string; notebook_id: string; user_id: string; title: string; content: string;
-  position: number; in_rag: boolean; created_at: Date; updated_at: Date; score?: number;
+  position: number; in_rag: boolean; color: string | null; created_at: Date; updated_at: Date; score?: number;
 }
 
 const nb = (r: NbRow): Notebook => ({
@@ -28,7 +28,7 @@ const nb = (r: NbRow): Notebook => ({
 });
 const page = (r: PageRow): NotePage => ({
   id: r.id, notebookId: r.notebook_id, userId: r.user_id, title: r.title, content: r.content ?? '',
-  position: r.position, inRag: r.in_rag,
+  position: r.position, inRag: r.in_rag, color: r.color,
   createdAt: r.created_at.toISOString(), updatedAt: r.updated_at.toISOString(),
 });
 
@@ -163,6 +163,7 @@ export async function updatePage(userId: string, id: string, patch: PageUpdateIn
   if (patch.content !== undefined) { sets.push(`content = $${i++}`); vals.push(patch.content); }
   if (patch.position !== undefined) { sets.push(`position = $${i++}`); vals.push(patch.position); }
   if (patch.inRag !== undefined) { sets.push(`in_rag = $${i++}`); vals.push(patch.inRag); }
+  if (patch.color !== undefined) { sets.push(`color = $${i++}`); vals.push(patch.color); }
   sets.push('updated_at = now()');
   const { rows } = await getPool().query<PageRow>(
     `UPDATE note_pages SET ${sets.join(', ')} WHERE user_id = $1 AND id = $2 RETURNING ${PAGE_COLS}`,

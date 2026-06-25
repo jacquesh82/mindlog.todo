@@ -90,6 +90,24 @@ describe('notes (OneNote-lite)', () => {
     expect(inB.length).toBe(0);
   });
 
+  it('duplicates a page within its notebook', async () => {
+    const token = await registerUser('dup@ex.com');
+    const nb = await request(app).post('/api/v1/notes/notebooks').set(auth(token)).send({ name: 'NB' });
+    const page = await request(app)
+      .post(`/api/v1/notes/notebooks/${nb.body.id}/pages`)
+      .set(auth(token))
+      .send({ title: 'Recipe', content: 'flour and eggs' });
+
+    const dup = await request(app).post(`/api/v1/notes/pages/${page.body.id}/duplicate`).set(auth(token));
+    expect(dup.status).toBe(201);
+    expect(dup.body.title).toBe('Recipe (copy)');
+    expect(dup.body.content).toBe('flour and eggs');
+    expect(dup.body.id).not.toBe(page.body.id);
+
+    const pages = await request(app).get(`/api/v1/notes/notebooks/${nb.body.id}/pages`).set(auth(token));
+    expect(pages.body).toHaveLength(2);
+  });
+
   it('isolates notebooks per user', async () => {
     const a = await registerUser('notes-a@ex.com');
     await request(app).post('/api/v1/notes/notebooks').set(auth(a)).send({ name: 'mine' });

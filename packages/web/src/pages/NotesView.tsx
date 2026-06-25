@@ -71,6 +71,12 @@ export function NotesView() {
     if (activeNb) reloadPages(activeNb);
   }
 
+  async function duplicatePage(id: string) {
+    const copy = await api.duplicatePage(id);
+    if (activeNb) reloadPages(activeNb);
+    void openPage(copy.id);
+  }
+
   /** Reorder pages by drag-and-drop: move `draggedId` to `targetId`'s slot. */
   async function reorderPages(draggedId: string, targetId: string) {
     if (draggedId === targetId) return;
@@ -167,7 +173,7 @@ export function NotesView() {
           {pages.map((p) => (
             <div
               key={p.id}
-              className="group flex items-center"
+              className="group flex cursor-grab items-center active:cursor-grabbing"
               draggable
               onDragStart={(e) => e.dataTransfer.setData('text/page', p.id)}
               onDragOver={(e) => e.preventDefault()}
@@ -177,12 +183,14 @@ export function NotesView() {
                 if (id) void reorderPages(id, p.id);
               }}
             >
+              <span className="pl-1 text-muted opacity-0 group-hover:opacity-100" title={t('notes.dragPage')}>⠿</span>
               <button
                 onClick={() => void openPage(p.id)}
-                className={`flex-1 truncate px-3 py-2 text-left text-sm ${page?.id === p.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'}`}
+                className={`flex-1 truncate px-2 py-2 text-left text-sm ${page?.id === p.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'}`}
               >
                 {p.title || t('notes.untitled')}
               </button>
+              <button onClick={() => void duplicatePage(p.id)} title={t('notes.duplicate')} className="px-1 text-muted opacity-0 hover:text-brand group-hover:opacity-100">⧉</button>
               <button onClick={() => void deletePage(p.id)} className="px-1 text-muted opacity-0 hover:text-[var(--color-p1)] group-hover:opacity-100">🗑</button>
             </div>
           ))}

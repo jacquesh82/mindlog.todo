@@ -240,6 +240,9 @@ export const api = {
   deletePage(id: string): Promise<void> {
     return request<void>(`/api/v1/notes/pages/${id}`, { method: 'DELETE' });
   },
+  duplicatePage(id: string): Promise<NotePage> {
+    return request<NotePage>(`/api/v1/notes/pages/${id}/duplicate`, { method: 'POST' });
+  },
   setNotebookRag(notebookId: string, inRag: boolean): Promise<{ updated: number }> {
     return request<{ updated: number }>(`/api/v1/notes/notebooks/${notebookId}/rag`, {
       method: 'POST',

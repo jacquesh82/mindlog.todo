@@ -14,15 +14,18 @@ export const notebookUpdateSchema = z.object({
 });
 export type NotebookUpdateInput = z.infer<typeof notebookUpdateSchema>;
 
+// Content can embed pasted images as base64 data URLs, so allow a generous size.
+const PAGE_CONTENT_MAX = 12_000_000;
+
 export const pageCreateSchema = z.object({
   title: z.string().max(300).optional(),
-  content: z.string().max(1_000_000).optional(),
+  content: z.string().max(PAGE_CONTENT_MAX).optional(),
 });
 export type PageCreateInput = z.infer<typeof pageCreateSchema>;
 
 export const pageUpdateSchema = z.object({
   title: z.string().max(300).optional(),
-  content: z.string().max(1_000_000).optional(),
+  content: z.string().max(PAGE_CONTENT_MAX).optional(),
   position: z.number().int().min(0).optional(),
 });
 export type PageUpdateInput = z.infer<typeof pageUpdateSchema>;

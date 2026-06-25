@@ -1,5 +1,17 @@
 @import 'tailwindcss';
 
+/* Notes rich-text content. Tailwind's preflight strips list markers and table
+   borders, so restore them inside the editable note boxes. */
+.notes-box ul { list-style: disc; padding-left: 1.4em; margin: 0.2em 0; }
+.notes-box ol { list-style: decimal; padding-left: 1.4em; margin: 0.2em 0; }
+.notes-box li { margin: 0.1em 0; }
+.notes-box table { border-collapse: collapse; }
+.notes-box td, .notes-box th {
+  border: 1px solid var(--color-line);
+  padding: 4px 8px;
+  min-width: 40px;
+}
+
 /* mindlog design tokens — a Todoist-like palette in mindlog red. Exposed to
    Tailwind v4 utilities (e.g. bg-brand, text-brand) via @theme. */
 @theme {

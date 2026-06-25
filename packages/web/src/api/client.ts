@@ -169,15 +169,18 @@ export const api = {
     return request<void>(`/api/v1/tasks/${id}`, { method: 'DELETE' });
   },
   quickAdd(text: string): Promise<Task> {
+    // Send the local tz offset (minutes east of UTC) so "9h" parses in local time.
+    const tz = -new Date().getTimezoneOffset();
     return request<Task>('/api/v1/tasks/quickadd', {
       method: 'POST',
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, tz }),
     });
   },
   parseQuickAdd(text: string): Promise<QuickAddPreview> {
+    const tz = -new Date().getTimezoneOffset();
     return request<QuickAddPreview>('/api/v1/tasks/parse', {
       method: 'POST',
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, tz }),
     });
   },
   runQuery(q: string): Promise<Task[]> {

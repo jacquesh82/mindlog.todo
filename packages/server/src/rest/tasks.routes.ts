@@ -27,13 +27,13 @@ tasksRouter.get('/', async (req, res) => {
 
 // Static sub-paths must be declared before the dynamic ":id" routes.
 tasksRouter.post('/quickadd', async (req, res) => {
-  const { text } = taskQuickAddSchema.parse(req.body);
-  res.status(201).json(await taskService.quickAddTask(userId(req), text));
+  const { text, tz } = taskQuickAddSchema.parse(req.body);
+  res.status(201).json(await taskService.quickAddTask(userId(req), text, tz));
 });
 
 tasksRouter.post('/parse', async (req, res) => {
-  const { text } = taskQuickAddSchema.parse(req.body);
-  res.json(await taskService.previewQuickAdd(userId(req), text));
+  const { text, tz } = taskQuickAddSchema.parse(req.body);
+  res.json(await taskService.previewQuickAdd(userId(req), text, tz));
 });
 
 // Ad-hoc filter query: GET /tasks/query?q=(p1 | p2) & @work & 7 days

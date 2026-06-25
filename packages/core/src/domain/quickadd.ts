@@ -37,7 +37,16 @@ function extractRecurrence(text: string): { recurrence: string | null; rest: str
   return { recurrence: null, rest: text };
 }
 
-export function parseQuickAdd(input: string, now: Date = new Date()): QuickAddParse {
+/**
+ * @param tzOffset minutes east of UTC for the user's timezone (e.g. +120 for
+ *   UTC+2). Lets chrono interpret bare times like "9h" in the user's local time
+ *   rather than the server's. Omit to use the server's timezone.
+ */
+export function parseQuickAdd(
+  input: string,
+  now: Date = new Date(),
+  tzOffset?: number,
+): QuickAddParse {
   let text = input.trim();
   let priority: number | null = null;
   let projectName: string | null = null;
@@ -72,7 +81,7 @@ export function parseQuickAdd(input: string, now: Date = new Date()): QuickAddPa
   // covers the most text — otherwise English grabs a partial match (e.g. just
   // "17h") and leaves the rest of a French date phrase in the title.
   let dueDate: Date | null = null;
-  const opts = { forwardDate: true } as const;
+  const opts = tzOffset === undefined ? { forwardDate: true } : { forwardDate: true, timezone: tzOffset };
   const candidates = [...chrono.parse(text, now, opts), ...chrono.fr.parse(text, now, opts)];
   let best: (typeof candidates)[number] | null = null;
   for (const r of candidates) {

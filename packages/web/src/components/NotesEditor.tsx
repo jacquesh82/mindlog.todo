@@ -153,10 +153,42 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
   }
 
   function insertTable(rows = 3, cols = 3) {
-    const cell = '<td style="border:1px solid var(--color-line);padding:4px 8px;min-width:52px">&nbsp;</td>';
+    const cell = '<td>&nbsp;</td>';
     const row = `<tr>${cell.repeat(cols)}</tr>`;
-    const html = `<table style="border-collapse:collapse;margin:6px 0">${row.repeat(rows)}</table><div><br></div>`;
+    // Wrap in a horizontally-resizable box so the whole table can be widened.
+    const html = `<div style="display:inline-block;overflow:auto;resize:horizontal;max-width:100%;margin:6px 0"><table style="width:100%">${row.repeat(rows)}</table></div><div><br></div>`;
     document.execCommand('insertHTML', false, html);
+  }
+
+  /** Add / remove a row or column relative to the cell holding the caret. */
+  function tableOp(op: 'addRow' | 'delRow' | 'addCol' | 'delCol') {
+    const sel = window.getSelection();
+    const node = sel?.rangeCount ? sel.getRangeAt(0).startContainer : null;
+    const el = node ? (node.nodeType === 1 ? (node as Element) : node.parentElement) : null;
+    const cell = el?.closest('td,th') as HTMLTableCellElement | null;
+    const box = el?.closest('.notes-box') as HTMLElement | null;
+    if (!cell || !box) return;
+    const row = cell.parentElement as HTMLTableRowElement;
+    const table = cell.closest('table') as HTMLTableElement;
+    const col = Array.from(row.children).indexOf(cell);
+    if (op === 'addRow') {
+      const nr = row.cloneNode(true) as HTMLTableRowElement;
+      Array.from(nr.children).forEach((c) => (c.innerHTML = '&nbsp;'));
+      row.after(nr);
+    } else if (op === 'delRow') {
+      if (table.rows.length > 1) row.remove();
+    } else if (op === 'addCol') {
+      for (const r of Array.from(table.rows)) {
+        const c = document.createElement('td');
+        c.innerHTML = '&nbsp;';
+        (r.children[col] ?? r.lastElementChild)?.after(c);
+      }
+    } else if (op === 'delCol') {
+      for (const r of Array.from(table.rows)) {
+        if (r.children.length > 1) r.children[col]?.remove();
+      }
+    }
+    updateHtml(box.id.replace('box-', ''), box.innerHTML);
   }
 
   function updateHtml(id: string, html: string) {
@@ -249,7 +281,11 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
               <span className="mx-0.5 text-line">|</span>
               <Tb onClick={() => exec('insertUnorderedList')} label="•" />
               <Tb onClick={() => exec('insertOrderedList')} label="1." />
-              <Tb onClick={() => insertTable()} label="⊞" />
+              <Tb onClick={() => insertTable()} label="⊞" title={t('notes.table')} />
+              <Tb onClick={() => tableOp('addRow')} label="⊞↓" className="w-7 text-xs" title={t('notes.addRow')} />
+              <Tb onClick={() => tableOp('addCol')} label="⊞→" className="w-7 text-xs" title={t('notes.addCol')} />
+              <Tb onClick={() => tableOp('delRow')} label="⊟↑" className="w-7 text-xs" title={t('notes.delRow')} />
+              <Tb onClick={() => tableOp('delCol')} label="⊟←" className="w-7 text-xs" title={t('notes.delCol')} />
               <span className="mx-0.5 text-line">|</span>
               {HIGHLIGHTS.map((c) => (
                 <button key={c} onMouseDown={(e) => e.preventDefault()} onClick={() => exec('hiliteColor', c)} title={t('notes.highlight')}
@@ -324,11 +360,12 @@ function EditableContent({
   );
 }
 
-function Tb({ onClick, label, className }: { onClick: () => void; label: string; className?: string }) {
+function Tb({ onClick, label, className, title }: { onClick: () => void; label: string; className?: string; title?: string }) {
   return (
     <button
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
+      title={title}
       className={`h-6 w-6 rounded text-ink hover:bg-line/60 ${className ?? ''}`}
     >
       {label}

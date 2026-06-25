@@ -3,6 +3,8 @@ import type {
   AiUsage,
   ApiKey,
   Attachment,
+  CalendarSource,
+  ExternalEvent,
   AskResult,
   AuthResult,
   Filter,
@@ -191,6 +193,20 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ query, k }),
     });
+  },
+
+  // calendar sources (iCal / Google subscription feeds)
+  listCalendarSources(): Promise<CalendarSource[]> {
+    return request<CalendarSource[]>('/api/v1/calendar/sources');
+  },
+  createCalendarSource(input: { name: string; url: string; color?: string | null }): Promise<CalendarSource> {
+    return request<CalendarSource>('/api/v1/calendar/sources', { method: 'POST', body: JSON.stringify(input) });
+  },
+  deleteCalendarSource(id: string): Promise<void> {
+    return request<void>(`/api/v1/calendar/sources/${id}`, { method: 'DELETE' });
+  },
+  calendarEvents(): Promise<ExternalEvent[]> {
+    return request<ExternalEvent[]>('/api/v1/calendar/events');
   },
 
   // attachments (feed the RAG)

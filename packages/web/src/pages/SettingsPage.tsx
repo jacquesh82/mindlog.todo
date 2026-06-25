@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useI18n, LANGS, type Lang } from '../i18n';
 import { applyTheme, getInitialTheme, type Theme } from '../theme';
-import type { AiLog, AiUsage, ApiKey, User } from '../types';
+import type { AiLog, AiUsage, ApiKey, CalendarSource, User } from '../types';
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -212,6 +212,67 @@ function AppearanceCard() {
   );
 }
 
+function CalendarSourcesCard() {
+  const { t } = useI18n();
+  const [sources, setSources] = useState<CalendarSource[]>([]);
+  const [name, setName] = useState('');
+  const [url, setUrl] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  const reload = () => void api.listCalendarSources().then(setSources);
+  useEffect(reload, []);
+
+  async function add() {
+    if (!name.trim() || !url.trim()) return;
+    setErr(null);
+    try {
+      await api.createCalendarSource({ name: name.trim(), url: url.trim(), color: '#246fe0' });
+      setName('');
+      setUrl('');
+      reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed');
+    }
+  }
+
+  return (
+    <Card title={`📆 ${t('cal.sources')}`}>
+      <p className="mb-3 text-sm text-muted">{t('cal.sourcesHint')}</p>
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={t('cal.sourceName')}
+          className="w-40 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-brand"
+        />
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://…/basic.ics"
+          className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink outline-none focus:border-brand"
+        />
+        <button onClick={add} className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover">
+          {t('cal.addSource')}
+        </button>
+      </div>
+      {err && <p className="mt-2 text-xs text-[var(--color-p1)]">{err}</p>}
+      <ul className="mt-3 divide-y divide-line">
+        {sources.length === 0 && <li className="py-2 text-sm text-muted">{t('cal.noSources')}</li>}
+        {sources.map((s) => (
+          <li key={s.id} className="flex items-center gap-2 py-2 text-sm">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color ?? '#808080' }} />
+            <span className="text-ink">{s.name}</span>
+            <span className="flex-1 truncate text-xs text-muted">{s.url}</span>
+            <button onClick={() => void api.deleteCalendarSource(s.id).then(reload)} className="text-[var(--color-p1)] hover:underline">
+              {t('task.delete')}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export function SettingsPage() {
   const { t } = useI18n();
   return (
@@ -219,6 +280,7 @@ export function SettingsPage() {
       <h1 className="mb-4 text-xl font-bold text-ink">{t('nav.settings')}</h1>
       <AccountCard />
       <AppearanceCard />
+      <CalendarSourcesCard />
       <AiActivityCard />
       <ApiKeysCard />
     </div>

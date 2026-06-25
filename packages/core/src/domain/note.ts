@@ -29,6 +29,7 @@ export const pageUpdateSchema = z.object({
   content: z.string().max(PAGE_CONTENT_MAX).optional(),
   position: z.number().int().min(0).optional(),
   inRag: z.boolean().optional(),
+  color: colorSchema.nullable().optional(),
 });
 export type PageUpdateInput = z.infer<typeof pageUpdateSchema>;
 
@@ -50,6 +51,7 @@ export interface NotePage {
   content: string;
   position: number;
   inRag: boolean;
+  color: string | null;
   createdAt: string;
   updatedAt: string;
 }

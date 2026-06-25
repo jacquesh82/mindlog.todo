@@ -152,6 +152,10 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
     document.execCommand(cmd, false, value);
   }
 
+  function insertCheckbox() {
+    document.execCommand('insertHTML', false, '<span class="note-check" contenteditable="false">☐</span>&nbsp;');
+  }
+
   function insertTable(rows = 3, cols = 3) {
     const cell = '<td>&nbsp;</td>';
     const row = `<tr>${cell.repeat(cols)}</tr>`;
@@ -287,6 +291,7 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
               <span className="mx-0.5 text-line">|</span>
               <Tb onClick={() => exec('insertUnorderedList')} label="•" />
               <Tb onClick={() => exec('insertOrderedList')} label="1." />
+              <Tb onClick={insertCheckbox} label="☑" title={t('notes.checkbox')} />
               <Tb onClick={() => insertTable()} label="⊞" title={t('notes.table')} />
               <Tb onClick={() => tableOp('addRow')} label="⊞↓" className="w-7 text-xs" title={t('notes.addRow')} />
               <Tb onClick={() => tableOp('addCol')} label="⊞→" className="w-7 text-xs" title={t('notes.addCol')} />
@@ -346,6 +351,13 @@ function EditableContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const sync = () => onChange(ref.current?.innerHTML ?? '');
+  function onClick(e: React.MouseEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('note-check')) {
+      target.textContent = target.textContent === '☑' ? '☐' : '☑';
+      sync();
+    }
+  }
   return (
     <div
       ref={ref}
@@ -354,6 +366,7 @@ function EditableContent({
       suppressContentEditableWarning
       onFocus={onFocus}
       onPaste={onPaste}
+      onClick={onClick}
       onInput={sync}
       onMouseUp={sync}
       className="notes-box min-h-6 rounded-md px-2 py-1 text-sm leading-relaxed text-ink outline-none"

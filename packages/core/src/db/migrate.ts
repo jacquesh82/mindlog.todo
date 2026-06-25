@@ -331,6 +331,10 @@ function migrations(): Migration[] {
           ON note_pages USING hnsw (embedding vector_cosine_ops);
       `,
     },
+    {
+      id: '017_note_page_color',
+      sql: /* sql */ `ALTER TABLE note_pages ADD COLUMN IF NOT EXISTS color TEXT;`,
+    },
   ];
 }
 

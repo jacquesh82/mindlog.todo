@@ -11,6 +11,12 @@
   padding: 4px 8px;
   min-width: 40px;
 }
+.notes-box .note-check {
+  cursor: pointer;
+  user-select: none;
+  margin-right: 2px;
+  color: var(--color-brand);
+}
 
 /* mindlog design tokens — a Todoist-like palette in mindlog red. Exposed to
    Tailwind v4 utilities (e.g. bg-brand, text-brand) via @theme. */

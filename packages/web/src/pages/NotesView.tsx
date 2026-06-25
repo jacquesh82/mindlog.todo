@@ -99,6 +99,17 @@ export function NotesView() {
     }
   }
 
+  async function recolorNotebook(id: string, color: string) {
+    await api.updateNotebook(id, { color });
+    reloadNotebooks();
+  }
+
+  async function recolorPage(id: string, color: string) {
+    await api.updatePage(id, { color });
+    if (page?.id === id) setPage((p) => (p ? { ...p, color } : p));
+    if (activeNb) reloadPages(activeNb);
+  }
+
   async function addNotebookToRag(id: string) {
     const { updated } = await api.setNotebookRag(id, true);
     if (page?.notebookId === id) setPage((p) => (p ? { ...p, inRag: true } : p));
@@ -142,15 +153,18 @@ export function NotesView() {
         </div>
         <div className="flex-1 overflow-y-auto">
           {notebooks.map((nb) => (
-            <div key={nb.id} className="group flex items-center">
+            <div key={nb.id} className={`group flex items-center ${activeNb === nb.id ? 'bg-brand-soft' : 'hover:bg-line/60'}`}>
+              <label className="cursor-pointer pl-3" title={t('notes.pickColor')}>
+                <span className="block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: nb.color ?? '#808080' }} />
+                <input type="color" className="sr-only" value={nb.color ?? '#808080'} onChange={(e) => void recolorNotebook(nb.id, e.target.value)} />
+              </label>
               <button
                 onClick={() => setActiveNb(nb.id)}
                 onDoubleClick={() => void renameNotebook(nb)}
                 title={t('notes.renameHint')}
-                className={`flex flex-1 items-center gap-2 px-3 py-1.5 text-left text-sm ${activeNb === nb.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'}`}
+                className={`flex-1 truncate px-2 py-1.5 text-left text-sm ${activeNb === nb.id ? 'font-medium text-brand' : 'text-ink'}`}
               >
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: nb.color ?? '#808080' }} />
-                <span className="flex-1 truncate">{nb.name}</span>
+                {nb.name}
               </button>
               <button onClick={() => void renameNotebook(nb)} title={t('notes.renameNotebook')} className="px-1 text-muted opacity-0 hover:text-brand group-hover:opacity-100">✏️</button>
               <button onClick={() => void addNotebookToRag(nb.id)} title={t('notes.ragNotebook')} className="px-1 text-muted opacity-0 hover:text-brand group-hover:opacity-100">🧠</button>
@@ -184,9 +198,14 @@ export function NotesView() {
               }}
             >
               <span className="pl-1 text-muted opacity-0 group-hover:opacity-100" title={t('notes.dragPage')}>⠿</span>
+              <label className="cursor-pointer px-1" title={t('notes.pickColor')}>
+                <span className="block h-2 w-2 rounded-full border border-line" style={{ backgroundColor: p.color ?? 'transparent' }} />
+                <input type="color" className="sr-only" value={p.color ?? '#cccccc'} onChange={(e) => void recolorPage(p.id, e.target.value)} />
+              </label>
               <button
                 onClick={() => void openPage(p.id)}
-                className={`flex-1 truncate px-2 py-2 text-left text-sm ${page?.id === p.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'}`}
+                className={`flex-1 truncate px-1 py-2 text-left text-sm ${page?.id === p.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'}`}
+                style={p.color ? { borderLeft: `3px solid ${p.color}` } : undefined}
               >
                 {p.title || t('notes.untitled')}
               </button>

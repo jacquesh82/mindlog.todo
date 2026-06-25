@@ -44,6 +44,9 @@ notesRouter.post('/notebooks/:id/pages', async (req, res) => {
 notesRouter.get('/pages/:id', async (req, res) => {
   res.json(await noteService.getPage(userId(req), req.params.id!));
 });
+notesRouter.post('/pages/:id/duplicate', async (req, res) => {
+  res.status(201).json(await noteService.duplicatePage(userId(req), req.params.id!));
+});
 notesRouter.patch('/pages/:id', async (req, res) => {
   res.json(await noteService.updatePage(userId(req), req.params.id!, pageUpdateSchema.parse(req.body)));
 });

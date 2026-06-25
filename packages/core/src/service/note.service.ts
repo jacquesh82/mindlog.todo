@@ -102,3 +102,19 @@ export async function searchPages(
 export async function deletePage(userId: string, id: string): Promise<void> {
   if (!(await repo.removePage(userId, id))) throw NotFound('Page not found');
 }
+
+/** Duplicate a page (title + " (copy)", same content/RAG flag) within its notebook. */
+export async function duplicatePage(userId: string, id: string): Promise<NotePage> {
+  const src = await repo.getPage(userId, id);
+  if (!src) throw NotFound('Page not found');
+  const position = await repo.countPages(userId, src.notebookId);
+  const copy = await repo.insertPage(userId, src.notebookId, `${src.title} (copy)`, src.content, position);
+  if (src.inRag) {
+    const updated = await repo.updatePage(userId, copy.id, { inRag: true });
+    if (updated) {
+      await syncEmbedding(updated);
+      return updated;
+    }
+  }
+  return copy;
+}

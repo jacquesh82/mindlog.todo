@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react';
+import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useI18n, type Lang } from '../i18n';
+import { useToast } from '../toast';
 import type { Filter, Karma, Label, Project } from '../types';
 import type { View } from '../app/view';
 import { FilterModal } from './FilterModal';
@@ -55,10 +57,23 @@ function Item({
 export function Sidebar({ projects, labels, filters, karma, view, onSelect, onReload }: Props) {
   const { t, lang, setLang } = useI18n();
   const { user, logout } = useAuth();
+  const { toast } = useToast();
   // null = closed, 'create' = new project, Project = edit that project.
   const [modal, setModal] = useState<'create' | Project | null>(null);
   const [labelModal, setLabelModal] = useState<'create' | Label | null>(null);
   const [filterModal, setFilterModal] = useState<'create' | Filter | null>(null);
+  const [rootOver, setRootOver] = useState(false);
+
+  /** Drag-and-drop reparent: make `childId` a child of `parentId` (null = root). */
+  async function reparent(childId: string, parentId: string | null) {
+    if (childId === parentId) return;
+    try {
+      await api.updateProject(childId, { parentId });
+      onReload();
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : 'Move failed', 'error');
+    }
+  }
 
   const inbox = projects.find((p) => p.isInbox);
   const realProjects = projects.filter((p) => !p.isInbox);
@@ -176,6 +191,16 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
           )}
         </Section>
 
+        <div
+          onDragOver={(e) => { e.preventDefault(); setRootOver(true); }}
+          onDragLeave={() => setRootOver(false)}
+          onDrop={(e) => {
+            setRootOver(false);
+            const id = e.dataTransfer.getData('text/project');
+            if (id) void reparent(id, null);
+          }}
+          className={rootOver ? 'rounded-md ring-2 ring-brand' : ''}
+        >
         <Section
           title={t('nav.projects')}
           action={
@@ -192,6 +217,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
               active={is('project', p.id)}
               onOpen={() => onSelect({ kind: 'project', id: p.id })}
               onEdit={() => setModal(p)}
+              onReparent={reparent}
             />
           ))}
           {realProjects.length === 0 && (
@@ -200,6 +226,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
             </button>
           )}
         </Section>
+        </div>
       </nav>
 
       {karma && (
@@ -289,15 +316,31 @@ function ProjectRow({
   depth = 0,
   onOpen,
   onEdit,
+  onReparent,
 }: {
   project: Project;
   active: boolean;
   depth?: number;
   onOpen: () => void;
   onEdit: () => void;
+  onReparent: (childId: string, parentId: string) => void;
 }) {
+  const [over, setOver] = useState(false);
   return (
-    <div className="group relative flex items-center">
+    <div
+      className={`group relative flex items-center rounded-md ${over ? 'ring-2 ring-brand' : ''}`}
+      draggable
+      onDragStart={(e) => e.dataTransfer.setData('text/project', project.id)}
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setOver(false);
+        const id = e.dataTransfer.getData('text/project');
+        if (id && id !== project.id) onReparent(id, project.id);
+      }}
+    >
       <button
         onClick={onOpen}
         style={{ paddingLeft: 8 + depth * 16 }}

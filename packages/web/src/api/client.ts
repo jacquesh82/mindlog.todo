@@ -5,6 +5,9 @@ import type {
   Attachment,
   CalendarSource,
   ExternalEvent,
+  Notebook,
+  NotePage,
+  NotePageSummary,
   AskResult,
   AuthResult,
   Filter,
@@ -207,6 +210,32 @@ export const api = {
   },
   calendarEvents(): Promise<ExternalEvent[]> {
     return request<ExternalEvent[]>('/api/v1/calendar/events');
+  },
+
+  // notes (OneNote-lite)
+  listNotebooks(): Promise<Notebook[]> {
+    return request<Notebook[]>('/api/v1/notes/notebooks');
+  },
+  createNotebook(name: string, color?: string | null): Promise<Notebook> {
+    return request<Notebook>('/api/v1/notes/notebooks', { method: 'POST', body: JSON.stringify({ name, color }) });
+  },
+  deleteNotebook(id: string): Promise<void> {
+    return request<void>(`/api/v1/notes/notebooks/${id}`, { method: 'DELETE' });
+  },
+  listPages(notebookId: string): Promise<NotePageSummary[]> {
+    return request<NotePageSummary[]>(`/api/v1/notes/notebooks/${notebookId}/pages`);
+  },
+  createPage(notebookId: string, title?: string): Promise<NotePage> {
+    return request<NotePage>(`/api/v1/notes/notebooks/${notebookId}/pages`, { method: 'POST', body: JSON.stringify({ title }) });
+  },
+  getPage(id: string): Promise<NotePage> {
+    return request<NotePage>(`/api/v1/notes/pages/${id}`);
+  },
+  updatePage(id: string, patch: { title?: string; content?: string }): Promise<NotePage> {
+    return request<NotePage>(`/api/v1/notes/pages/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deletePage(id: string): Promise<void> {
+    return request<void>(`/api/v1/notes/pages/${id}`, { method: 'DELETE' });
   },
 
   // attachments (feed the RAG)

@@ -27,6 +27,7 @@ stale core (this caused #project/attachments to silently not work until api rebu
 - Tests: core 67 + server 58, all green. App at https://todo.mindlog.localhost:9443.
 
 **Next Steps**:
+- Notes (OneNote-lite): the only remaining requested feature — not started.
 - Phase 4 reminders + PWA/Web Push (not started); Phase 5 collaboration; Phase 7
   templates; Phase 8 webhooks + API/MCP polish; Phase 9 PWA/offline.
 - Drag-and-drop between board columns; French recurrence ("tous les lundis").

@@ -71,6 +71,20 @@ export function NotesView() {
     if (activeNb) reloadPages(activeNb);
   }
 
+  /** Reorder pages by drag-and-drop: move `draggedId` to `targetId`'s slot. */
+  async function reorderPages(draggedId: string, targetId: string) {
+    if (draggedId === targetId) return;
+    const order = pages.map((p) => p.id);
+    const from = order.indexOf(draggedId);
+    const to = order.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    order.splice(to, 0, order.splice(from, 1)[0]!);
+    const map = new Map(pages.map((p) => [p.id, p]));
+    const next = order.map((id) => map.get(id)!);
+    setPages(next); // optimistic
+    await Promise.all(next.map((p, i) => (p.position === i ? null : api.updatePage(p.id, { position: i }))).filter(Boolean));
+  }
+
   /** Turn a note line into a real task (lands in the Inbox / normal task lists). */
   async function createTaskFromNote(text: string) {
     const task = await api.createTask({ title: text.slice(0, 500) });
@@ -126,7 +140,18 @@ export function NotesView() {
         </div>
         <div className="flex-1 overflow-y-auto">
           {pages.map((p) => (
-            <div key={p.id} className="group flex items-center">
+            <div
+              key={p.id}
+              className="group flex items-center"
+              draggable
+              onDragStart={(e) => e.dataTransfer.setData('text/page', p.id)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = e.dataTransfer.getData('text/page');
+                if (id) void reorderPages(id, p.id);
+              }}
+            >
               <button
                 onClick={() => void openPage(p.id)}
                 className={`flex-1 truncate px-3 py-2 text-left text-sm ${page?.id === p.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'}`}

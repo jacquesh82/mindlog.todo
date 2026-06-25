@@ -193,16 +193,11 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
               <button onClick={() => removeBox(b.id)} className="px-1 text-muted hover:text-[var(--color-p1)]">🗑</button>
             </div>
           )}
-          <div
-            id={`box-${b.id}`}
-            contentEditable
-            suppressContentEditableWarning
+          <EditableContent
+            box={b}
             onFocus={() => setActive(b.id)}
             onPaste={(e) => onPaste(b.id, e)}
-            onInput={(e) => updateHtml(b.id, (e.target as HTMLDivElement).innerHTML)}
-            onMouseUp={(e) => updateHtml(b.id, (e.currentTarget as HTMLDivElement).innerHTML)}
-            dangerouslySetInnerHTML={{ __html: b.html }}
-            className="notes-box min-h-6 rounded-md px-2 py-1 text-sm leading-relaxed text-ink outline-none"
+            onChange={(html) => updateHtml(b.id, html)}
           />
           {active === b.id && (
             <div
@@ -214,6 +209,44 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * Uncontrolled rich-text box: innerHTML is set once on mount, never re-applied
+ * from React, so typing and selection are never disrupted (a controlled
+ * dangerouslySetInnerHTML resets the caret to the start on every keystroke).
+ */
+function EditableContent({
+  box,
+  onFocus,
+  onPaste,
+  onChange,
+}: {
+  box: Box;
+  onFocus: () => void;
+  onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
+  onChange: (html: string) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.innerHTML = box.html;
+    // mount only — intentionally not reacting to box.html changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const sync = () => onChange(ref.current?.innerHTML ?? '');
+  return (
+    <div
+      ref={ref}
+      id={`box-${box.id}`}
+      contentEditable
+      suppressContentEditableWarning
+      onFocus={onFocus}
+      onPaste={onPaste}
+      onInput={sync}
+      onMouseUp={sync}
+      className="notes-box min-h-6 rounded-md px-2 py-1 text-sm leading-relaxed text-ink outline-none"
+    />
   );
 }
 

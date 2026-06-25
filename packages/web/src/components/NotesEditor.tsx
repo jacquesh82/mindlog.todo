@@ -42,6 +42,7 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
   const [boxes, setBoxes] = useState<Box[]>(() => parseBoxes(initialContent));
   const [active, setActive] = useState<string | null>(null);
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const rez = useRef<{ id: string; startW: number; startX: number } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // Persist (debounced) whenever boxes change.
@@ -65,6 +66,12 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
   useEffect(() => {
     if (!active) return;
     const onMove = (e: MouseEvent) => {
+      if (rez.current) {
+        const id = rez.current.id;
+        const w = Math.max(120, rez.current.startW + (e.clientX - rez.current.startX));
+        setBoxes((bs) => bs.map((b) => (b.id === id ? { ...b, w } : b)));
+        return;
+      }
       if (!drag.current) return;
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -74,9 +81,10 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
       );
     };
     const onUp = () => {
-      if (drag.current) {
+      if (drag.current || rez.current) {
         drag.current = null;
-        // persist the moved position
+        rez.current = null;
+        // persist the new position / size
         setBoxes((bs) => {
           onChange(JSON.stringify({ boxes: bs }));
           return bs;
@@ -116,10 +124,11 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
     e.preventDefault();
     const reader = new FileReader();
     reader.onload = () => {
+      // Wrap in a horizontally-resizable span so the image gets a drag grip.
       document.execCommand(
         'insertHTML',
         false,
-        `<img src="${reader.result}" style="max-width:100%;border-radius:6px;display:block;margin:6px 0"/><div><br></div>`,
+        `<span style="display:inline-block;overflow:hidden;resize:horizontal;max-width:100%;width:320px;margin:6px 0;border-radius:6px" contenteditable="false"><img src="${reader.result}" style="width:100%;display:block"/></span><div><br></div>`,
       );
       const el = document.getElementById(`box-${id}`);
       if (el) updateHtml(id, el.innerHTML);
@@ -191,9 +200,17 @@ export function NotesEditor({ initialContent, onChange, onCreateTask }: Props) {
             onFocus={() => setActive(b.id)}
             onPaste={(e) => onPaste(b.id, e)}
             onInput={(e) => updateHtml(b.id, (e.target as HTMLDivElement).innerHTML)}
+            onMouseUp={(e) => updateHtml(b.id, (e.currentTarget as HTMLDivElement).innerHTML)}
             dangerouslySetInnerHTML={{ __html: b.html }}
-            className="min-h-6 rounded-md px-2 py-1 text-sm leading-relaxed text-ink outline-none"
+            className="notes-box min-h-6 rounded-md px-2 py-1 text-sm leading-relaxed text-ink outline-none"
           />
+          {active === b.id && (
+            <div
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); rez.current = { id: b.id, startW: b.w, startX: e.clientX }; }}
+              title={t('notes.resize')}
+              className="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-sm border border-brand bg-surface"
+            />
+          )}
         </div>
       ))}
     </div>

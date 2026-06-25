@@ -12,25 +12,31 @@ export const PROJECT_COLORS = [
 
 interface Props {
   project?: Project; // undefined → create
+  projects: Project[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function ProjectModal({ project, onClose, onSaved }: Props) {
+export function ProjectModal({ project, projects, onClose, onSaved }: Props) {
   const { t } = useI18n();
   const [name, setName] = useState(project?.name ?? '');
   const [color, setColor] = useState(project?.color ?? PROJECT_COLORS[1]!);
   const [favorite, setFavorite] = useState(project?.isFavorite ?? false);
+  const [parentId, setParentId] = useState(project?.parentId ?? '');
   const [busy, setBusy] = useState(false);
+
+  // Eligible parents: other non-inbox projects (server guards against cycles).
+  const parentOptions = projects.filter((p) => !p.isInbox && p.id !== project?.id);
 
   async function save() {
     if (!name.trim()) return;
     setBusy(true);
     try {
+      const patch = { name: name.trim(), color, isFavorite: favorite, parentId: parentId || null };
       if (project) {
-        await api.updateProject(project.id, { name: name.trim(), color, isFavorite: favorite });
+        await api.updateProject(project.id, patch);
       } else {
-        await api.createProject({ name: name.trim(), color, isFavorite: favorite });
+        await api.createProject(patch);
       }
       onSaved();
       onClose();
@@ -85,6 +91,20 @@ export function ProjectModal({ project, onClose, onSaved }: Props) {
             ))}
           </div>
         </div>
+
+        <label className="mt-3 block text-sm">
+          <span className="mb-1 block text-xs font-medium text-muted">{t('project.parent')}</span>
+          <select
+            value={parentId}
+            onChange={(e) => setParentId(e.target.value)}
+            className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-ink outline-none focus:border-brand"
+          >
+            <option value="">{t('project.noParent')}</option>
+            {parentOptions.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </label>
 
         <label className="mt-3 flex items-center gap-2 text-sm text-ink">
           <input type="checkbox" checked={favorite} onChange={(e) => setFavorite(e.target.checked)} />

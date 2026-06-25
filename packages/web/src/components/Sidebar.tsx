@@ -62,6 +62,21 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
 
   const inbox = projects.find((p) => p.isInbox);
   const realProjects = projects.filter((p) => !p.isInbox);
+  // Flatten the project hierarchy depth-first for indented rendering.
+  const ids = new Set(realProjects.map((p) => p.id));
+  const byParent = new Map<string | null, Project[]>();
+  for (const p of realProjects) {
+    const key = p.parentId && ids.has(p.parentId) ? p.parentId : null;
+    (byParent.get(key) ?? byParent.set(key, []).get(key)!).push(p);
+  }
+  const orderedProjects: { project: Project; depth: number }[] = [];
+  const walk = (parent: string | null, depth: number) => {
+    for (const p of byParent.get(parent) ?? []) {
+      orderedProjects.push({ project: p, depth });
+      walk(p.id, depth + 1);
+    }
+  };
+  walk(null, 0);
   const favProjects = projects.filter((p) => p.isFavorite);
   const favLabels = labels.filter((l) => l.isFavorite);
   const hasFavorites = favProjects.length > 0 || favLabels.length > 0;
@@ -168,10 +183,11 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
             </button>
           }
         >
-          {realProjects.map((p) => (
+          {orderedProjects.map(({ project: p, depth }) => (
             <ProjectRow
               key={p.id}
               project={p}
+              depth={depth}
               active={is('project', p.id)}
               onOpen={() => onSelect({ kind: 'project', id: p.id })}
               onEdit={() => setModal(p)}
@@ -206,6 +222,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
       {modal !== null && (
         <ProjectModal
           project={modal === 'create' ? undefined : modal}
+          projects={projects}
           onClose={() => setModal(null)}
           onSaved={onReload}
         />
@@ -268,11 +285,13 @@ function EditableRow({
 function ProjectRow({
   project,
   active,
+  depth = 0,
   onOpen,
   onEdit,
 }: {
   project: Project;
   active: boolean;
+  depth?: number;
   onOpen: () => void;
   onEdit: () => void;
 }) {
@@ -280,7 +299,8 @@ function ProjectRow({
     <div className="group relative flex items-center">
       <button
         onClick={onOpen}
-        className={`flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition ${
+        style={{ paddingLeft: 8 + depth * 16 }}
+        className={`flex flex-1 items-center gap-2 rounded-md py-1.5 pr-2 text-left text-sm transition ${
           active ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'
         }`}
       >

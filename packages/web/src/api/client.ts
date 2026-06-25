@@ -219,6 +219,9 @@ export const api = {
   createNotebook(name: string, color?: string | null): Promise<Notebook> {
     return request<Notebook>('/api/v1/notes/notebooks', { method: 'POST', body: JSON.stringify({ name, color }) });
   },
+  updateNotebook(id: string, patch: { name?: string; color?: string | null }): Promise<Notebook> {
+    return request<Notebook>(`/api/v1/notes/notebooks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
   deleteNotebook(id: string): Promise<void> {
     return request<void>(`/api/v1/notes/notebooks/${id}`, { method: 'DELETE' });
   },

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useI18n, LANGS, type Lang } from '../i18n';
 import { useDialog } from '../dialog';
+import { useToast } from '../toast';
 import { applyTheme, getInitialTheme, type Theme } from '../theme';
 import type { AiLog, AiUsage, ApiKey, CalendarSource, User } from '../types';
 
@@ -287,6 +288,47 @@ export function SettingsPage() {
       <CalendarSourcesCard />
       <AiActivityCard />
       <ApiKeysCard />
+      <DataExportCard />
     </div>
+  );
+}
+
+function DataExportCard() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function download() {
+    setBusy(true);
+    try {
+      const data = await api.exportData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `mindlog-export-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Export failed', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title={`⬇️ ${t('settings.export')}`}>
+      <p className="mb-3 text-sm text-muted">{t('settings.exportHint')}</p>
+      <button
+        onClick={download}
+        disabled={busy}
+        className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-50"
+      >
+        {busy ? t('common.loading') : t('settings.exportBtn')}
+      </button>
+    </Card>
   );
 }

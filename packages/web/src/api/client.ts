@@ -352,4 +352,9 @@ export const api = {
   deleteApiKey(id: string): Promise<void> {
     return request<void>(`/api/v1/api-keys/${id}`, { method: 'DELETE' });
   },
+
+  // full data export (backup / portability)
+  exportData(): Promise<Record<string, unknown>> {
+    return request<Record<string, unknown>>('/api/v1/export');
+  },
 };

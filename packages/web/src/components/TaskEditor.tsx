@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { PRIORITY_COLOR } from '../format';
+import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
 import type { Attachment, Label, Project, Section, Task } from '../types';
@@ -23,6 +24,7 @@ function toLocalInput(iso: string | null): string {
 
 export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) {
   const { t } = useI18n();
+  const dialog = useDialog();
   const { toast } = useToast();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? '');
@@ -212,7 +214,7 @@ export function TaskEditor({ task, projects, labels, onClose, onSaved }: Props) 
                   <span className="flex-1 truncate text-ink">📎 {a.filename}</span>
                   <span className="text-muted">{Math.max(1, Math.round(a.byteSize / 1024))} KB</span>
                   <button
-                    onClick={() => void api.deleteAttachment(a.id).then(loadAttachments)}
+                    onClick={async () => { if (await dialog.confirm({ title: t('common.deleteConfirm'), danger: true, confirmLabel: t('task.delete') })) await api.deleteAttachment(a.id).then(loadAttachments); }}
                     className="text-muted hover:text-[var(--color-p1)]"
                   >
                     🗑

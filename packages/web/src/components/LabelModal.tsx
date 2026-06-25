@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api/client';
+import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
 import type { Label } from '../types';
 import { PROJECT_COLORS } from './ProjectModal';
@@ -12,6 +13,7 @@ interface Props {
 
 export function LabelModal({ label, onClose, onSaved }: Props) {
   const { t } = useI18n();
+  const dialog = useDialog();
   const [name, setName] = useState(label?.name ?? '');
   const [color, setColor] = useState(label?.color ?? PROJECT_COLORS[10]!);
   const [favorite, setFavorite] = useState(label?.isFavorite ?? false);
@@ -36,6 +38,7 @@ export function LabelModal({ label, onClose, onSaved }: Props) {
 
   async function remove() {
     if (!label) return;
+    if (!(await dialog.confirm({ title: t('common.deleteConfirm'), danger: true, confirmLabel: t('task.delete') }))) return;
     setBusy(true);
     await api.deleteLabel(label.id);
     onSaved();

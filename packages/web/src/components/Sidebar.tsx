@@ -121,14 +121,18 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-4">
+        {/* Cross-cutting tools (not tied to tasks) sit at the very top. */}
         <Item active={is('search')} icon="🔎" label={t('nav.search')} onClick={() => onSelect({ kind: 'search' })} />
-        <Item active={is('today')} icon="📆" label={t('nav.today')} onClick={() => onSelect({ kind: 'today' })} />
-        <Item active={is('upcoming')} icon="🗓" label={t('nav.upcoming')} onClick={() => onSelect({ kind: 'upcoming' })} />
-        {inbox && (
-          <Item active={is('inbox')} icon="📥" label={t('nav.inbox')} onClick={() => onSelect({ kind: 'inbox', id: inbox.id })} />
-        )}
-        <Item active={is('completed')} icon="✓" label={t('nav.completed')} onClick={() => onSelect({ kind: 'completed' })} />
         <Item active={is('notes')} icon="📓" label={t('nav.notes')} onClick={() => onSelect({ kind: 'notes' })} />
+
+        <Section title={t('nav.tasks')}>
+          <Item active={is('today')} icon="📆" label={t('nav.today')} onClick={() => onSelect({ kind: 'today' })} />
+          <Item active={is('upcoming')} icon="🗓" label={t('nav.upcoming')} onClick={() => onSelect({ kind: 'upcoming' })} />
+          {inbox && (
+            <Item active={is('inbox')} icon="📥" label={t('nav.inbox')} onClick={() => onSelect({ kind: 'inbox', id: inbox.id })} />
+          )}
+          <Item active={is('completed')} icon="✓" label={t('nav.completed')} onClick={() => onSelect({ kind: 'completed' })} />
+        </Section>
 
         {hasFavorites && (
           <Section title={t('nav.favorites')}>

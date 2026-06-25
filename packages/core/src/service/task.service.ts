@@ -319,8 +319,8 @@ async function resolveQuickAdd(userId: string, parsed: QuickAddParse): Promise<Q
   return { ...parsed, projectId, labelIds, newLabelNames };
 }
 
-export async function previewQuickAdd(userId: string, text: string): Promise<QuickAddPreview> {
-  return resolveQuickAdd(userId, parseQuickAdd(text));
+export async function previewQuickAdd(userId: string, text: string, tz?: number): Promise<QuickAddPreview> {
+  return resolveQuickAdd(userId, parseQuickAdd(text, new Date(), tz));
 }
 
 /** Run a Todoist-style filter query and return the matching tasks (with labels). */
@@ -348,8 +348,8 @@ export async function runFilterQuery(userId: string, query: string): Promise<Tas
 }
 
 /** Parse a Quick Add line and create the task, creating any missing labels. */
-export async function quickAddTask(userId: string, text: string): Promise<Task> {
-  const parsed = parseQuickAdd(text);
+export async function quickAddTask(userId: string, text: string, tz?: number): Promise<Task> {
+  const parsed = parseQuickAdd(text, new Date(), tz);
   if (!parsed.title) throw BadRequest('Quick add produced an empty title');
 
   // `#project` resolves to an existing project, or creates one (so the

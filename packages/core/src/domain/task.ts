@@ -98,6 +98,8 @@ export type TaskSearchInput = z.infer<typeof taskSearchSchema>;
 
 export const taskQuickAddSchema = z.object({
   text: z.string().min(1).max(1000),
+  /** Caller timezone offset, minutes east of UTC (e.g. +120 for UTC+2). */
+  tz: z.number().int().min(-840).max(840).optional(),
 });
 export type TaskQuickAddInput = z.infer<typeof taskQuickAddSchema>;
 

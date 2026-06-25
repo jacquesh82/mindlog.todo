@@ -76,6 +76,14 @@ describe('parseQuickAdd', () => {
     expect(r.dueDate!.getDate()).toBe(30);
   });
 
+  it('parses bare times in the caller timezone', () => {
+    // "9h" with a +120 (UTC+2) offset means 09:00 local = 07:00 UTC.
+    const r = parseQuickAdd('réunion à 9h', NOW, 120);
+    expect(r.title).toBe('réunion');
+    expect(r.dueDate!.getUTCHours()).toBe(7);
+    expect(r.dueDate!.getUTCMinutes()).toBe(0);
+  });
+
   it('handles a fully-loaded line', () => {
     const r = parseQuickAdd('Review PR tomorrow at 5pm #Eng @review p2 every week', NOW);
     expect(r.title).toBe('Review PR');

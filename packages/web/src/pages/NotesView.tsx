@@ -85,6 +85,12 @@ export function NotesView() {
     await Promise.all(next.map((p, i) => (p.position === i ? null : api.updatePage(p.id, { position: i }))).filter(Boolean));
   }
 
+  async function addNotebookToRag(id: string) {
+    const { updated } = await api.setNotebookRag(id, true);
+    if (page?.notebookId === id) setPage((p) => (p ? { ...p, inRag: true } : p));
+    toast(t('notes.ragNotebookDone', { count: updated }));
+  }
+
   async function toggleRag() {
     if (!page) return;
     const updated = await api.updatePage(page.id, { inRag: !page.inRag });
@@ -130,6 +136,7 @@ export function NotesView() {
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: nb.color ?? '#808080' }} />
                 <span className="flex-1 truncate">{nb.name}</span>
               </button>
+              <button onClick={() => void addNotebookToRag(nb.id)} title={t('notes.ragNotebook')} className="px-1 text-muted opacity-0 hover:text-brand group-hover:opacity-100">🧠</button>
               <button onClick={() => void deleteNotebook(nb.id)} className="px-1 text-muted opacity-0 hover:text-[var(--color-p1)] group-hover:opacity-100">🗑</button>
             </div>
           ))}

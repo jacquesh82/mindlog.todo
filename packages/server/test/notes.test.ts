@@ -69,6 +69,27 @@ describe('notes (OneNote-lite)', () => {
     expect(await noteService.searchPages(userId, 'budget hiring', 5)).toHaveLength(0);
   });
 
+  it('adds a whole notebook to the RAG and scopes search to it', async () => {
+    const reg = await request(app).post('/api/v1/auth/register').send({ email: 'bulkrag@ex.com', password: 'password123' });
+    const token = reg.body.accessToken as string;
+    const userId = reg.body.user.id as string;
+    const a = await request(app).post('/api/v1/notes/notebooks').set(auth(token)).send({ name: 'A' });
+    const b = await request(app).post('/api/v1/notes/notebooks').set(auth(token)).send({ name: 'B' });
+    await request(app).post(`/api/v1/notes/notebooks/${a.body.id}/pages`).set(auth(token)).send({ title: 'p1', content: 'budget planning notes' });
+    await request(app).post(`/api/v1/notes/notebooks/${a.body.id}/pages`).set(auth(token)).send({ title: 'p2', content: 'budget review' });
+    await request(app).post(`/api/v1/notes/notebooks/${b.body.id}/pages`).set(auth(token)).send({ title: 'p3', content: 'budget elsewhere' });
+
+    // Add all of notebook A to the RAG in one go.
+    const bulk = await request(app).post(`/api/v1/notes/notebooks/${a.body.id}/rag`).set(auth(token)).send({ inRag: true });
+    expect(bulk.body.updated).toBe(2);
+
+    // Scoped search to A returns A's pages; scoped to B (not in RAG) is empty.
+    const inA = await noteService.searchPages(userId, 'budget', 10, { notebookIds: [a.body.id] });
+    expect(inA.length).toBe(2);
+    const inB = await noteService.searchPages(userId, 'budget', 10, { notebookIds: [b.body.id] });
+    expect(inB.length).toBe(0);
+  });
+
   it('isolates notebooks per user', async () => {
     const a = await registerUser('notes-a@ex.com');
     await request(app).post('/api/v1/notes/notebooks').set(auth(a)).send({ name: 'mine' });

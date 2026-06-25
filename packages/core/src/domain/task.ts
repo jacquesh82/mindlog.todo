@@ -106,6 +106,8 @@ export type TaskQuickAddInput = z.infer<typeof taskQuickAddSchema>;
 export const taskAskSchema = z.object({
   question: z.string().min(1),
   k: z.coerce.number().int().min(1).max(20).default(8),
+  /** Restrict the note-page side of the RAG to these notebooks. */
+  notebookIds: z.array(z.uuid()).optional(),
 });
 export type TaskAskInput = z.infer<typeof taskAskSchema>;
 

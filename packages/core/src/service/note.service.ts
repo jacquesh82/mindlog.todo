@@ -72,11 +72,31 @@ export async function updatePage(userId: string, id: string, patch: PageUpdateIn
   return updated;
 }
 
-/** Semantic search over the user's RAG-enabled note pages. */
-export async function searchPages(userId: string, query: string, k = 5): Promise<NotePageHit[]> {
+/** Toggle the RAG flag for every page of a notebook at once; returns the count. */
+export async function setNotebookRag(userId: string, notebookId: string, inRag: boolean): Promise<number> {
+  const notebook = await repo.getNotebook(userId, notebookId);
+  if (!notebook) throw NotFound('Notebook not found');
+  const pages = await repo.listPages(userId, notebookId);
+  for (const p of pages) {
+    const updated = await repo.updatePage(userId, p.id, { inRag });
+    if (updated) await syncEmbedding(updated);
+  }
+  return pages.length;
+}
+
+/**
+ * Semantic search over the user's RAG-enabled note pages, optionally scoped to
+ * specific notebooks and/or pages.
+ */
+export async function searchPages(
+  userId: string,
+  query: string,
+  k = 5,
+  scope?: { notebookIds?: string[]; pageIds?: string[] },
+): Promise<NotePageHit[]> {
   const vec = await embedOne(query);
   if (vec.length === 0) return [];
-  return repo.search(userId, vec, k);
+  return repo.search(userId, vec, k, scope);
 }
 
 export async function deletePage(userId: string, id: string): Promise<void> {

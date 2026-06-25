@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api/client';
+import { useDialog } from '../dialog';
 import { formatDue, PRIORITY_COLOR } from '../format';
 import { useI18n } from '../i18n';
 import type { Label } from '../types';
@@ -16,6 +17,7 @@ interface Props {
 /** A Todoist-style task row with nested sub-tasks and an add-subtask affordance. */
 export function TaskRow({ task, labels, onChanged, onEdit, depth = 0 }: Props) {
   const { lang, t } = useI18n();
+  const dialog = useDialog();
   const [busy, setBusy] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
   const [subTitle, setSubTitle] = useState('');
@@ -34,6 +36,7 @@ export function TaskRow({ task, labels, onChanged, onEdit, depth = 0 }: Props) {
   }
 
   async function remove() {
+    if (!(await dialog.confirm({ title: t('common.deleteConfirm'), danger: true, confirmLabel: t('task.delete') }))) return;
     setBusy(true);
     try {
       await api.deleteTask(task.id);

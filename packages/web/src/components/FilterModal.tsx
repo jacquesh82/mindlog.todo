@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api/client';
+import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
 import type { Filter } from '../types';
 import { PROJECT_COLORS } from './ProjectModal';
@@ -12,6 +13,7 @@ interface Props {
 
 export function FilterModal({ filter, onClose, onSaved }: Props) {
   const { t } = useI18n();
+  const dialog = useDialog();
   const [name, setName] = useState(filter?.name ?? '');
   const [query, setQuery] = useState(filter?.query ?? '');
   const [color, setColor] = useState(filter?.color ?? PROJECT_COLORS[3]!);
@@ -36,6 +38,7 @@ export function FilterModal({ filter, onClose, onSaved }: Props) {
 
   async function remove() {
     if (!filter) return;
+    if (!(await dialog.confirm({ title: t('common.deleteConfirm'), danger: true, confirmLabel: t('task.delete') }))) return;
     setBusy(true);
     await api.deleteFilter(filter.id);
     onSaved();

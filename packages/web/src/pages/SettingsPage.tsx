@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useI18n, LANGS, type Lang } from '../i18n';
+import { useDialog } from '../dialog';
 import { applyTheme, getInitialTheme, type Theme } from '../theme';
 import type { AiLog, AiUsage, ApiKey, CalendarSource, User } from '../types';
 
@@ -14,6 +15,8 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 function ApiKeysCard() {
+  const { t } = useI18n();
+  const dialog = useDialog();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [name, setName] = useState('');
   const [created, setCreated] = useState<ApiKey | null>(null);
@@ -58,7 +61,7 @@ function ApiKeysCard() {
           <li key={k.id} className="flex items-center gap-3 py-2 text-sm">
             <code className="rounded bg-line/60 px-1.5">{k.prefix}…</code>
             <span className="flex-1 text-muted">{k.name}</span>
-            <button onClick={() => void api.deleteApiKey(k.id).then(reload)} className="text-[var(--color-p1)] hover:underline">
+            <button onClick={async () => { if (await dialog.confirm({ title: t('common.deleteConfirm'), danger: true, confirmLabel: t('task.delete') })) await api.deleteApiKey(k.id).then(reload); }} className="text-[var(--color-p1)] hover:underline">
               Revoke
             </button>
           </li>
@@ -214,6 +217,7 @@ function AppearanceCard() {
 
 function CalendarSourcesCard() {
   const { t } = useI18n();
+  const dialog = useDialog();
   const [sources, setSources] = useState<CalendarSource[]>([]);
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
@@ -263,7 +267,7 @@ function CalendarSourcesCard() {
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color ?? '#808080' }} />
             <span className="text-ink">{s.name}</span>
             <span className="flex-1 truncate text-xs text-muted">{s.url}</span>
-            <button onClick={() => void api.deleteCalendarSource(s.id).then(reload)} className="text-[var(--color-p1)] hover:underline">
+            <button onClick={async () => { if (await dialog.confirm({ title: t('common.deleteConfirm'), danger: true, confirmLabel: t('task.delete') })) await api.deleteCalendarSource(s.id).then(reload); }} className="text-[var(--color-p1)] hover:underline">
               {t('task.delete')}
             </button>
           </li>

@@ -66,6 +66,7 @@ export function NotesView() {
   }
 
   async function deletePage(id: string) {
+    if (!(await dialog.confirm({ title: t('common.deleteConfirm'), danger: true }))) return;
     await api.deletePage(id);
     if (page?.id === id) setPage(null);
     if (activeNb) reloadPages(activeNb);

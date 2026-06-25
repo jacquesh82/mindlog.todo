@@ -237,6 +237,12 @@ export const api = {
   deletePage(id: string): Promise<void> {
     return request<void>(`/api/v1/notes/pages/${id}`, { method: 'DELETE' });
   },
+  setNotebookRag(notebookId: string, inRag: boolean): Promise<{ updated: number }> {
+    return request<{ updated: number }>(`/api/v1/notes/notebooks/${notebookId}/rag`, {
+      method: 'POST',
+      body: JSON.stringify({ inRag }),
+    });
+  },
 
   // attachments (feed the RAG)
   listAttachments(taskId: string): Promise<Attachment[]> {
@@ -310,10 +316,10 @@ export const api = {
   runFilter(id: string): Promise<Task[]> {
     return request<Task[]>(`/api/v1/filters/${id}/tasks`);
   },
-  ask(question: string, k = 8): Promise<AskResult> {
+  ask(question: string, k = 8, notebookIds?: string[]): Promise<AskResult> {
     return request<AskResult>('/api/v1/tasks/ask', {
       method: 'POST',
-      body: JSON.stringify({ question, k }),
+      body: JSON.stringify({ question, k, notebookIds }),
     });
   },
 

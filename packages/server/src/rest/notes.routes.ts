@@ -6,6 +6,7 @@ import {
   pageUpdateSchema,
 } from '@mindlog/core';
 import { Router } from 'express';
+import { z } from 'zod';
 import { requireAuth, userId } from '../middleware/auth.js';
 
 export const notesRouter: Router = Router();
@@ -24,6 +25,13 @@ notesRouter.patch('/notebooks/:id', async (req, res) => {
 notesRouter.delete('/notebooks/:id', async (req, res) => {
   await noteService.deleteNotebook(userId(req), req.params.id!);
   res.status(204).end();
+});
+
+// Add/remove every page of a notebook to/from the RAG in one go.
+notesRouter.post('/notebooks/:id/rag', async (req, res) => {
+  const { inRag } = z.object({ inRag: z.boolean() }).parse(req.body);
+  const count = await noteService.setNotebookRag(userId(req), req.params.id!, inRag);
+  res.json({ updated: count });
 });
 
 // Pages

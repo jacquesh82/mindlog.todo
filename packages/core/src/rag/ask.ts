@@ -38,8 +38,10 @@ export async function askTasks(userId: string, input: TaskAskInput): Promise<Tas
       )
       .join('\n\n') || '(no matching tasks)';
 
-  // Pull RAG-enabled note pages too.
-  const pageHits = await noteService.searchPages(userId, input.question, input.k).catch(() => []);
+  // Pull RAG-enabled note pages too (optionally scoped to chosen notebooks).
+  const pageHits = await noteService
+    .searchPages(userId, input.question, input.k, { notebookIds: input.notebookIds })
+    .catch(() => []);
   const pages = (
     await Promise.all(pageHits.map((p) => noteService.getPage(userId, p.id).catch(() => null)))
   ).filter((p): p is NonNullable<typeof p> => p !== null);

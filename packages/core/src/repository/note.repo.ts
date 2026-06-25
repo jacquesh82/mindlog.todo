@@ -105,16 +105,33 @@ export async function setEmbedding(id: string, vec: number[] | null): Promise<vo
   );
 }
 
-/** Semantic search over a user's RAG-enabled note pages. */
-export async function search(userId: string, queryVec: number[], k: number): Promise<NotePageHit[]> {
+/** Semantic search over a user's RAG-enabled note pages (optionally scoped). */
+export async function search(
+  userId: string,
+  queryVec: number[],
+  k: number,
+  scope?: { notebookIds?: string[]; pageIds?: string[] },
+): Promise<NotePageHit[]> {
   const vec = toVectorLiteral(queryVec);
+  const params: unknown[] = [userId, vec];
+  let where = 'user_id = $1 AND in_rag AND embedding IS NOT NULL';
+  if (scope?.notebookIds?.length) {
+    params.push(scope.notebookIds);
+    where += ` AND notebook_id = ANY($${params.length}::uuid[])`;
+  }
+  if (scope?.pageIds?.length) {
+    params.push(scope.pageIds);
+    where += ` AND id = ANY($${params.length}::uuid[])`;
+  }
+  params.push(k);
+  const kIdx = params.length;
   const { rows } = await getPool().query<PageRow>(
     `SELECT ${PAGE_LIST_COLS}, '' AS content, 1 - (embedding <=> $2::vector) AS score
      FROM note_pages
-     WHERE user_id = $1 AND in_rag AND embedding IS NOT NULL
+     WHERE ${where}
      ORDER BY embedding <=> $2::vector
-     LIMIT $3`,
-    [userId, vec, k],
+     LIMIT $${kIdx}`,
+    params,
   );
   return rows.map((r) => {
     const { content: _c, ...rest } = page(r);

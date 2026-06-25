@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { EmptyState, SearchEmptyArt } from '../components/Illustrations';
 import { TaskEditor } from '../components/TaskEditor';
 import { useI18n } from '../i18n';
-import type { AskResult, Label, Project, Task, TaskHit } from '../types';
+import type { AskResult, Label, Notebook, Project, Task, TaskHit } from '../types';
 
 export function SearchAskView({ projects, labels, onChanged }: { projects: Project[]; labels: Label[]; onChanged: () => void }) {
   const { t } = useI18n();
   const [editing, setEditing] = useState<Task | null>(null);
+  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [scope, setScope] = useState<string[]>([]); // selected notebook ids (empty = all)
+
+  useEffect(() => {
+    void api.listNotebooks().then(setNotebooks);
+  }, []);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<TaskHit[] | null>(null);
   const [answer, setAnswer] = useState<AskResult | null>(null);
@@ -23,7 +29,7 @@ export function SearchAskView({ projects, labels, onChanged }: { projects: Proje
         setHits(await api.search(q));
         setAnswer(null);
       } else {
-        setAnswer(await api.ask(q));
+        setAnswer(await api.ask(q, 8, scope.length ? scope : undefined));
         setHits(null);
       }
     } catch (e) {
@@ -61,6 +67,30 @@ export function SearchAskView({ projects, labels, onChanged }: { projects: Proje
           💬 {t('search.ask')}
         </button>
       </div>
+
+      {notebooks.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-muted">{t('search.scope')}</span>
+          <button
+            onClick={() => setScope([])}
+            className={`rounded-full border px-2 py-0.5 ${scope.length === 0 ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted'}`}
+          >
+            {t('search.scopeAll')}
+          </button>
+          {notebooks.map((nb) => {
+            const on = scope.includes(nb.id);
+            return (
+              <button
+                key={nb.id}
+                onClick={() => setScope((s) => (on ? s.filter((x) => x !== nb.id) : [...s, nb.id]))}
+                className={`rounded-full border px-2 py-0.5 ${on ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted'}`}
+              >
+                📓 {nb.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {err && <p className="mt-3 text-sm text-[var(--color-p1)]">{err}</p>}
       {busy && <p className="mt-3 text-sm text-muted">{t('common.loading')}</p>}

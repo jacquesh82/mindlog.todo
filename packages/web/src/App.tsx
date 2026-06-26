@@ -45,7 +45,7 @@ export function App() {
     return (
       <div className="legacy flex min-h-screen flex-col items-center justify-center gap-6 bg-[var(--bg)]">
         <div className="flex flex-col items-center gap-1.5">
-          <img src="/milo.svg" alt="Milo" className="h-16 w-16" />
+          <img src={`${import.meta.env.BASE_URL}milo.svg`} alt="Milo" className="h-16 w-16" />
           <div className="text-lg font-semibold" style={{ color: 'var(--color-brand)' }}>
             {t('app.name')}
           </div>

@@ -44,15 +44,13 @@ services:
 
   web:
     image: ${REGISTRY:-ghcr.io/jacquesh82/mindlog.todo}/web:${IMAGE_TAG:-latest}
-    # This container terminates TLS itself and binds a loopback HTTPS port; the
-    # host's SNI-passthrough edge routes todo.mindlog.today here by hostname.
-    # Set WEB_HTTPS_BIND=0.0.0.0 if the edge lives on another host/network.
+    # Serves the SPA over plain HTTP on a loopback port. TLS for todo.mindlog.today
+    # is terminated by the Astro front (mindlog.todo.web), which proxies the `/app`
+    # sub-path here. Set WEB_HTTP_BIND=0.0.0.0 if the front is on another host.
     ports:
-      - "${WEB_HTTPS_BIND:-127.0.0.1}:${WEB_HTTPS_PORT:-9743}:443"
+      - "${WEB_HTTP_BIND:-127.0.0.1}:${WEB_HTTP_PORT:-8080}:80"
     volumes:
       - ./nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
-      # Let's Encrypt cert for the TLS_DOMAIN, read-only (jot.mindlog.today pattern).
-      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       api:
         condition: service_healthy

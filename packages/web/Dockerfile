@@ -2,7 +2,9 @@
 FROM node:24-bookworm AS build
 WORKDIR /app
 ARG VITE_API_URL
+ARG VITE_BASE
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_BASE=$VITE_BASE
 
 COPY package.json tsconfig.base.json ./
 COPY packages/web/package.json ./packages/web/package.json

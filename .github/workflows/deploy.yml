@@ -70,7 +70,8 @@ jobs:
           file: packages/web/Dockerfile
           push: true
           build-args: |
-            VITE_API_URL=
+            VITE_API_URL=/app
+            VITE_BASE=/app/
           tags: |
             ${{ steps.meta.outputs.prefix }}/web:${{ steps.meta.outputs.tag }}
             ${{ steps.meta.outputs.prefix }}/web:latest

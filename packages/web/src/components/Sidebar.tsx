@@ -103,7 +103,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-sidebar">
       <div className="flex items-center justify-between px-4 py-3">
         <span className="flex items-center gap-2 font-semibold text-brand">
-          <img src="/milo.svg" alt="Milo" className="h-6 w-6" />
+          <img src={`${import.meta.env.BASE_URL}milo.svg`} alt="Milo" className="h-6 w-6" />
           {t('app.name')}
         </span>
         <div className="flex items-center gap-2 text-sm">

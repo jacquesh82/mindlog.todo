@@ -6,6 +6,7 @@ interface UserRow {
   email: string;
   password_hash: string | null;
   google_sub: string | null;
+  mindlog_id_sub: string | null;
   display_name: string | null;
   created_at: Date;
 }
@@ -16,6 +17,7 @@ function mapUser(r: UserRow): User {
     email: r.email,
     displayName: r.display_name,
     googleSub: r.google_sub,
+    mindlogIdSub: r.mindlog_id_sub,
     createdAt: r.created_at.toISOString(),
   };
 }
@@ -73,6 +75,35 @@ export async function upsertGoogleUser(input: {
   });
 }
 
+/** Find a user by mindlog-id subject, or by email, creating/linking as needed. */
+export async function upsertMindlogIdUser(input: {
+  sub: string;
+  email: string;
+  displayName?: string | null;
+}): Promise<User> {
+  const pool = getPool();
+  const bySub = await pool.query<UserRow>('SELECT * FROM users WHERE mindlog_id_sub = $1', [
+    input.sub,
+  ]);
+  if (bySub.rows[0]) return mapUser(bySub.rows[0]);
+
+  const byEmail = await pool.query<UserRow>('SELECT * FROM users WHERE email = $1', [input.email]);
+  if (byEmail.rows[0]) {
+    const linked = await pool.query<UserRow>(
+      'UPDATE users SET mindlog_id_sub = $1 WHERE id = $2 RETURNING *',
+      [input.sub, byEmail.rows[0].id],
+    );
+    return mapUser(linked.rows[0]!);
+  }
+
+  const { rows } = await pool.query<UserRow>(
+    `INSERT INTO users (email, password_hash, display_name, mindlog_id_sub)
+     VALUES ($1, NULL, $2, $3) RETURNING *`,
+    [input.email, input.displayName ?? null, input.sub],
+  );
+  return mapUser(rows[0]!);
+}
+
 // --- refresh tokens ---
 
 export async function insertRefreshToken(input: {
@@ -102,6 +133,46 @@ export async function revokeRefreshToken(tokenHash: string): Promise<void> {
     'UPDATE refresh_tokens SET revoked_at = now() WHERE token_hash = $1 AND revoked_at IS NULL',
     [tokenHash],
   );
+}
+
+/** Revoke every active refresh token for a user (e.g. after a password reset). */
+export async function revokeAllRefreshTokens(userId: string): Promise<void> {
+  await getPool().query(
+    'UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
+    [userId],
+  );
+}
+
+// --- password reset tokens ---
+
+export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+  await getPool().query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
+}
+
+export async function createPasswordResetToken(input: {
+  userId: string;
+  tokenHash: string;
+  expiresAt: Date;
+}): Promise<void> {
+  await getPool().query(
+    'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1,$2,$3)',
+    [input.userId, input.tokenHash, input.expiresAt],
+  );
+}
+
+export async function findValidPasswordResetToken(
+  tokenHash: string,
+): Promise<{ id: string; userId: string } | null> {
+  const { rows } = await getPool().query<{ id: string; user_id: string }>(
+    `SELECT id, user_id FROM password_reset_tokens
+     WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+    [tokenHash],
+  );
+  return rows[0] ? { id: rows[0].id, userId: rows[0].user_id } : null;
+}
+
+export async function consumePasswordResetToken(id: string): Promise<void> {
+  await getPool().query('UPDATE password_reset_tokens SET used_at = now() WHERE id = $1', [id]);
 }
 
 // --- api keys ---

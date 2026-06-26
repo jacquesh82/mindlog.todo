@@ -15,7 +15,61 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function ApiKeysCard() {
+/** A read-only, labeled value with a one-click Copy button (+ "Copied" confirmation). */
+function CopyField({
+  label,
+  value,
+  hint,
+  mono,
+  empty,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  mono?: boolean;
+  empty?: string;
+}) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-muted">{label}</label>
+      <div className="flex items-stretch gap-2">
+        <input
+          readOnly
+          value={value}
+          placeholder={empty}
+          onFocus={(e) => e.currentTarget.select()}
+          className={`min-w-0 flex-1 rounded-md border border-line bg-sidebar px-3 py-2 text-sm text-ink outline-none placeholder:text-muted ${mono ? 'font-mono' : ''}`}
+        />
+        <button
+          type="button"
+          onClick={copy}
+          disabled={!value}
+          aria-label={`${t('settings.copy')} — ${label}`}
+          className="w-20 shrink-0 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {copied ? t('settings.copied') : t('settings.copy')}
+        </button>
+      </div>
+      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+    </div>
+  );
+}
+
+function McpConnectorCard() {
   const { t } = useI18n();
   const dialog = useDialog();
   const [keys, setKeys] = useState<ApiKey[]>([]);
@@ -32,42 +86,70 @@ function ApiKeysCard() {
   }
 
   return (
-    <Card title="🔑 API keys (for MCP)">
-      <p className="mb-3 text-sm text-muted">
-        Use a key as a Bearer token with the MCP server. Keys act only on your own tasks.
-      </p>
-      <div className="flex gap-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Key name (optional)"
-          className="flex-1 rounded-md border border-line px-3 py-1.5 text-sm outline-none focus:border-brand"
-        />
-        <button
-          onClick={create}
-          className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover"
-        >
-          Generate key
-        </button>
+    <Card title={`🔌 ${t('settings.mcp')}`}>
+      <p className="mb-4 text-sm text-muted">{t('settings.mcpHint')}</p>
+
+      <div className="space-y-3">
+        <CopyField label={t('settings.mcpName')} value="mindlog.todo" />
+        <CopyField label={t('settings.mcpUrl')} value={api.mcpUrl()} mono />
+        <CopyField label={t('settings.mcpClientId')} value="" empty={t('settings.mcpEmpty')} />
+        <CopyField label={t('settings.mcpClientSecret')} value="" empty={t('settings.mcpEmpty')} />
       </div>
-      {created?.secret && (
-        <div className="mt-3 rounded-md border border-brand bg-brand-soft p-3 text-sm">
-          <div className="font-medium">Copy now — shown only once:</div>
-          <code className="break-all">{created.secret}</code>
+
+      <div className="mt-5 border-t border-line pt-4">
+        <div className="mb-1 text-sm font-semibold text-ink">{t('settings.mcpKey')}</div>
+        <p className="mb-3 text-xs text-muted">{t('settings.mcpKeyHint')}</p>
+
+        {created?.secret && (
+          <div className="mb-3 rounded-md border border-brand bg-brand-soft p-3">
+            <CopyField label={t('settings.mcpKeyOnce')} value={created.secret} mono />
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('settings.mcpKeyName')}
+            className="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+          />
+          <button
+            type="button"
+            onClick={create}
+            className="shrink-0 rounded-md bg-brand px-3 py-2 text-sm font-medium text-white hover:bg-brand-hover"
+          >
+            {t('settings.mcpGenerate')}
+          </button>
         </div>
-      )}
-      <ul className="mt-3 divide-y divide-line">
-        {keys.length === 0 && <li className="py-2 text-sm text-muted">No keys yet.</li>}
-        {keys.map((k) => (
-          <li key={k.id} className="flex items-center gap-3 py-2 text-sm">
-            <code className="rounded bg-line/60 px-1.5">{k.prefix}…</code>
-            <span className="flex-1 text-muted">{k.name}</span>
-            <button onClick={async () => { if (await dialog.confirm({ title: t('common.deleteConfirm'), danger: true, confirmLabel: t('task.delete') })) await api.deleteApiKey(k.id).then(reload); }} className="text-[var(--color-p1)] hover:underline">
-              Revoke
-            </button>
-          </li>
-        ))}
-      </ul>
+
+        <ul className="mt-3 divide-y divide-line">
+          {keys.length === 0 && (
+            <li className="py-2 text-sm text-muted">{t('settings.mcpNoKeys')}</li>
+          )}
+          {keys.map((k) => (
+            <li key={k.id} className="flex items-center gap-3 py-2 text-sm">
+              <code className="rounded bg-line/60 px-1.5 font-mono">{k.prefix}…</code>
+              <span className="flex-1 truncate text-muted">{k.name}</span>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (
+                    await dialog.confirm({
+                      title: t('common.deleteConfirm'),
+                      danger: true,
+                      confirmLabel: t('task.delete'),
+                    })
+                  )
+                    await api.deleteApiKey(k.id).then(reload);
+                }}
+                className="text-[var(--color-p1)] hover:underline"
+              >
+                {t('settings.revoke')}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
     </Card>
   );
 }
@@ -287,7 +369,7 @@ export function SettingsPage() {
       <AppearanceCard />
       <CalendarSourcesCard />
       <AiActivityCard />
-      <ApiKeysCard />
+      <McpConnectorCard />
       <DataExportCard />
     </div>
   );

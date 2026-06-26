@@ -335,6 +335,25 @@ function migrations(): Migration[] {
       id: '017_note_page_color',
       sql: /* sql */ `ALTER TABLE note_pages ADD COLUMN IF NOT EXISTS color TEXT;`,
     },
+    {
+      id: '018_password_reset',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          token_hash TEXT NOT NULL UNIQUE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          used_at    TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS password_reset_user_idx
+          ON password_reset_tokens (user_id);
+      `,
+    },
+    {
+      id: '019_mindlog_id',
+      sql: /* sql */ `ALTER TABLE users ADD COLUMN IF NOT EXISTS mindlog_id_sub TEXT UNIQUE;`,
+    },
   ];
 }
 

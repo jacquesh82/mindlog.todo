@@ -18,6 +18,17 @@ export const refreshSchema = z.object({
 });
 export type RefreshInput = z.infer<typeof refreshSchema>;
 
+export const forgotPasswordSchema = z.object({
+  email: z.email().max(320),
+});
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8).max(200),
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
 export const apiKeyCreateSchema = z.object({
   name: z.string().max(200).optional(),
 });
@@ -28,6 +39,7 @@ export interface User {
   email: string;
   displayName: string | null;
   googleSub: string | null;
+  mindlogIdSub: string | null;
   createdAt: string;
 }
 

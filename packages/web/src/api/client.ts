@@ -155,6 +155,25 @@ export const api = {
   googleUrl(): string {
     return `${API}/api/v1/auth/google`;
   },
+  mindlogIdUrl(): string {
+    return `${API}/api/v1/auth/mindlog-id`;
+  },
+  async forgotPassword(email: string): Promise<void> {
+    await request('/api/v1/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+  async resetPassword(token: string, password: string): Promise<void> {
+    await request('/api/v1/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    });
+  },
+  /** Public URL of the remote MCP server (for the Claude custom connector). */
+  mcpUrl(): string {
+    return `${API || window.location.origin}/mcp`;
+  },
   me(): Promise<User> {
     return request<User>('/api/v1/me');
   },

@@ -9,7 +9,10 @@ import { defineConfig } from 'vite';
 // marketing site), so `base` prefixes all built asset URLs with `/app/`.
 // Overridable via VITE_BASE so dev (default `/`) and other hosts stay flexible.
 export default defineConfig({
-  base: process.env.VITE_BASE ?? '/',
+  // Use `||` (not `??`) so an empty-string build arg falls back to an absolute
+  // root base. An empty base makes Vite emit relative asset URLs (./assets/…),
+  // which break on nested client routes like /auth/reset (resolve to /auth/assets/…).
+  base: process.env.VITE_BASE || '/',
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,

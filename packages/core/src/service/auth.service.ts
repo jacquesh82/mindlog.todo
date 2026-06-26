@@ -5,6 +5,7 @@ import { generateApiKey, generateRefreshToken, parseDurationMs, sha256 } from '.
 import { config } from '../config.js';
 import type { ApiKey, AuthResult, LoginInput, RegisterInput, User } from '../domain/user.js';
 import { Conflict, Unauthorized } from '../errors.js';
+import * as projectRepo from '../repository/project.repo.js';
 import * as userRepo from '../repository/user.repo.js';
 
 async function issueTokens(user: User): Promise<AuthResult> {
@@ -30,6 +31,7 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
     passwordHash,
     displayName: input.displayName ?? null,
   });
+  await projectRepo.ensureInbox(user.id);
   return issueTokens(user);
 }
 
@@ -74,6 +76,7 @@ export async function loginWithGoogle(code: string): Promise<AuthResult> {
     email: profile.email,
     displayName: profile.name,
   });
+  await projectRepo.ensureInbox(user.id);
   return issueTokens(user);
 }
 

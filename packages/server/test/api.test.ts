@@ -112,6 +112,265 @@ describe('tasks', () => {
     expect(after.status).toBe(404);
   });
 
+  it('defaults priority to P4 and round-trips an explicit priority', async () => {
+    const { accessToken } = await registerUser('prio@ex.com');
+
+    const plain = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'no priority' });
+    expect(plain.body.priority).toBe(4);
+
+    const urgent = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'urgent', priority: 1 });
+    expect(urgent.body.priority).toBe(1);
+
+    const patched = await request(app)
+      .patch(`/api/v1/tasks/${plain.body.id}`)
+      .set(auth(accessToken))
+      .send({ priority: 2 });
+    expect(patched.body.priority).toBe(2);
+
+    const p1Only = await request(app).get('/api/v1/tasks?priority=1').set(auth(accessToken));
+    expect(p1Only.body).toHaveLength(1);
+    expect(p1Only.body[0].title).toBe('urgent');
+  });
+
+  it('rejects an out-of-range priority with 400', async () => {
+    const { accessToken } = await registerUser('badprio@ex.com');
+    const res = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'x', priority: 9 });
+    expect(res.status).toBe(400);
+  });
+
+  it('defaults a new task to the Inbox project', async () => {
+    const { accessToken } = await registerUser('taskinbox@ex.com');
+    const projects = await request(app).get('/api/v1/projects').set(auth(accessToken));
+    const inbox = projects.body.find((p: { isInbox: boolean }) => p.isInbox);
+
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'loose task' });
+    expect(created.body.projectId).toBe(inbox.id);
+    expect(created.body.sectionId).toBeNull();
+  });
+
+  it('places a task in a project + section and moving project clears the section', async () => {
+    const { accessToken } = await registerUser('taskmove@ex.com');
+    const projA = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'A' });
+    const projB = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'B' });
+    const section = await request(app)
+      .post('/api/v1/sections')
+      .set(auth(accessToken))
+      .send({ projectId: projA.body.id, name: 'Col' });
+
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 't', projectId: projA.body.id, sectionId: section.body.id });
+    expect(created.body.projectId).toBe(projA.body.id);
+    expect(created.body.sectionId).toBe(section.body.id);
+
+    // Move to project B — the section (which belongs to A) must be cleared.
+    const moved = await request(app)
+      .patch(`/api/v1/tasks/${created.body.id}`)
+      .set(auth(accessToken))
+      .send({ projectId: projB.body.id });
+    expect(moved.body.projectId).toBe(projB.body.id);
+    expect(moved.body.sectionId).toBeNull();
+
+    // Listing by project filters correctly.
+    const inB = await request(app)
+      .get(`/api/v1/tasks?projectId=${projB.body.id}`)
+      .set(auth(accessToken));
+    expect(inB.body).toHaveLength(1);
+  });
+
+  it('rejects a section that belongs to a different project', async () => {
+    const { accessToken } = await registerUser('badsection@ex.com');
+    const projA = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'A' });
+    const projB = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'B' });
+    const sectionA = await request(app)
+      .post('/api/v1/sections')
+      .set(auth(accessToken))
+      .send({ projectId: projA.body.id, name: 'Col' });
+
+    const res = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 't', projectId: projB.body.id, sectionId: sectionA.body.id });
+    expect(res.status).toBe(400);
+  });
+
+  it('deletes a project and cascades its tasks', async () => {
+    const { accessToken } = await registerUser('cascadeproj@ex.com');
+    const proj = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'Temp' });
+    const task = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'doomed', projectId: proj.body.id });
+
+    await request(app).delete(`/api/v1/projects/${proj.body.id}`).set(auth(accessToken));
+    const after = await request(app).get(`/api/v1/tasks/${task.body.id}`).set(auth(accessToken));
+    expect(after.status).toBe(404);
+  });
+
+  it('assigns labels to a task and returns them, replacing on update', async () => {
+    const { accessToken } = await registerUser('tasklabels@ex.com');
+    const home = await request(app).post('/api/v1/labels').set(auth(accessToken)).send({ name: 'home' });
+    const urgent = await request(app)
+      .post('/api/v1/labels')
+      .set(auth(accessToken))
+      .send({ name: 'urgent' });
+
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'tagged', labelIds: [home.body.id, urgent.body.id] });
+    expect(created.body.labelIds.sort()).toEqual([home.body.id, urgent.body.id].sort());
+
+    // Replacing the set keeps only the given labels.
+    const patched = await request(app)
+      .patch(`/api/v1/tasks/${created.body.id}`)
+      .set(auth(accessToken))
+      .send({ labelIds: [home.body.id] });
+    expect(patched.body.labelIds).toEqual([home.body.id]);
+
+    // Listing returns labelIds too.
+    const list = await request(app).get('/api/v1/tasks').set(auth(accessToken));
+    expect(list.body[0].labelIds).toEqual([home.body.id]);
+
+    // Deleting a label removes it from the task (cascade).
+    await request(app).delete(`/api/v1/labels/${home.body.id}`).set(auth(accessToken));
+    const after = await request(app).get(`/api/v1/tasks/${created.body.id}`).set(auth(accessToken));
+    expect(after.body.labelIds).toEqual([]);
+  });
+
+  it('rejects assigning a label the user does not own', async () => {
+    const a = await registerUser('lblowner@ex.com');
+    const label = await request(app)
+      .post('/api/v1/labels')
+      .set(auth(a.accessToken))
+      .send({ name: 'mine' });
+    const b = await registerUser('lblthief@ex.com');
+    const res = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(b.accessToken))
+      .send({ title: 'x', labelIds: [label.body.id] });
+    expect(res.status).toBe(400);
+  });
+
+  it('round-trips a deadline + duration and clears them with null', async () => {
+    const { accessToken } = await registerUser('dates@ex.com');
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'dated', deadline: '2026-07-15', durationMinutes: 90 });
+    expect(created.body.deadline).toBe('2026-07-15');
+    expect(created.body.durationMinutes).toBe(90);
+
+    const cleared = await request(app)
+      .patch(`/api/v1/tasks/${created.body.id}`)
+      .set(auth(accessToken))
+      .send({ deadline: null, durationMinutes: null });
+    expect(cleared.body.deadline).toBeNull();
+    expect(cleared.body.durationMinutes).toBeNull();
+  });
+
+  it('normalises a recurrence rule and reschedules on completion', async () => {
+    const { accessToken } = await registerUser('recur@ex.com');
+    const created = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'standup', dueDate: '2026-06-24T09:00:00Z', recurrence: 'every day' });
+    expect(created.body.recurrence).toBe('every day');
+
+    // Completing it advances the due date and keeps it open (Todoist behaviour).
+    const done = await request(app)
+      .patch(`/api/v1/tasks/${created.body.id}`)
+      .set(auth(accessToken))
+      .send({ status: 'done' });
+    expect(done.body.status).toBe('todo');
+    expect(done.body.dueDate).toBe('2026-06-25T09:00:00.000Z');
+  });
+
+  it('rejects an unrecognised recurrence rule with 400', async () => {
+    const { accessToken } = await registerUser('badrecur@ex.com');
+    const res = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'x', recurrence: 'every blursday' });
+    expect(res.status).toBe(400);
+  });
+
+  it('filters tasks by due date, overdue, no-date and completion', async () => {
+    const { accessToken } = await registerUser('views@ex.com');
+    const mk = (body: object) => request(app).post('/api/v1/tasks').set(auth(accessToken)).send(body);
+    await mk({ title: 'overdue', dueDate: '2020-01-01T00:00:00Z' });
+    await mk({ title: 'future', dueDate: '2999-01-01T00:00:00Z' });
+    const undated = await mk({ title: 'no date' });
+
+    const overdue = await request(app).get('/api/v1/tasks?overdue=true').set(auth(accessToken));
+    expect(overdue.body.map((t: { title: string }) => t.title)).toEqual(['overdue']);
+
+    const noDate = await request(app).get('/api/v1/tasks?noDate=true').set(auth(accessToken));
+    expect(noDate.body.map((t: { title: string }) => t.title)).toEqual(['no date']);
+
+    const before = await request(app)
+      .get('/api/v1/tasks?dueBefore=2025-01-01T00:00:00Z')
+      .set(auth(accessToken));
+    expect(before.body.map((t: { title: string }) => t.title)).toEqual(['overdue']);
+
+    // Complete the undated task → it appears only under completed=true.
+    await request(app)
+      .patch(`/api/v1/tasks/${undated.body.id}`)
+      .set(auth(accessToken))
+      .send({ status: 'done' });
+    const open = await request(app).get('/api/v1/tasks?completed=false').set(auth(accessToken));
+    expect(open.body.map((t: { title: string }) => t.title).sort()).toEqual(['future', 'overdue']);
+    const done = await request(app).get('/api/v1/tasks?completed=true').set(auth(accessToken));
+    expect(done.body.map((t: { title: string }) => t.title)).toEqual(['no date']);
+  });
+
+  it('filters tasks by label', async () => {
+    const { accessToken } = await registerUser('bylabel@ex.com');
+    const lbl = await request(app).post('/api/v1/labels').set(auth(accessToken)).send({ name: 'home' });
+    await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'tagged', labelIds: [lbl.body.id] });
+    await request(app).post('/api/v1/tasks').set(auth(accessToken)).send({ title: 'untagged' });
+
+    const res = await request(app)
+      .get(`/api/v1/tasks?labelId=${lbl.body.id}`)
+      .set(auth(accessToken));
+    expect(res.body.map((t: { title: string }) => t.title)).toEqual(['tagged']);
+  });
+
+  it('inherits the parent project for a sub-task', async () => {
+    const { accessToken } = await registerUser('subproj@ex.com');
+    const proj = await request(app).post('/api/v1/projects').set(auth(accessToken)).send({ name: 'P' });
+    const parent = await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'parent', projectId: proj.body.id });
+    const sub = await request(app)
+      .post(`/api/v1/tasks/${parent.body.id}/subtasks`)
+      .set(auth(accessToken))
+      .send({ title: 'child' });
+    // The sub-task lands in the parent's project, not the Inbox.
+    expect(sub.body.projectId).toBe(proj.body.id);
+    const inProject = await request(app)
+      .get(`/api/v1/tasks?projectId=${proj.body.id}`)
+      .set(auth(accessToken));
+    expect(inProject.body.map((t: { title: string }) => t.title).sort()).toEqual(['child', 'parent']);
+  });
+
   it('nests sub-tasks and returns a tree', async () => {
     const { accessToken } = await registerUser('tree@ex.com');
     const root = await request(app)

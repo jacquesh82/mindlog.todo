@@ -26,6 +26,17 @@ export function createMcpServer(userId: string): McpServer {
   const server = new McpServer({ name: 'mindlog-todo', version: '0.0.0' });
 
   server.registerTool(
+    'task_quick_add',
+    {
+      title: 'Quick add task',
+      description:
+        'Create a task from one natural-language line, e.g. "Submit report tomorrow 5pm #Work @urgent p1 every week". Resolves #project and @label by name (creating missing labels).',
+      inputSchema: { text: z.string() },
+    },
+    async ({ text }) => jsonResult(await taskService.quickAddTask(userId, text)),
+  );
+
+  server.registerTool(
     'task_create',
     {
       title: 'Create task',
@@ -35,9 +46,16 @@ export function createMcpServer(userId: string): McpServer {
         description: z.string().optional(),
         assignee: z.string().optional(),
         dueDate: z.string().describe('ISO 8601 datetime').optional(),
+        deadline: z.string().describe('YYYY-MM-DD hard deadline').optional(),
+        durationMinutes: z.number().int().positive().optional(),
+        recurrence: z.string().describe('natural language, e.g. "every weekday"').optional(),
         status: statusEnum.optional(),
+        priority: z.number().int().min(1).max(4).describe('1 = P1 (urgent) … 4 = P4 (none)').optional(),
         progress: z.number().int().min(0).max(100).optional(),
         parentId: z.string().optional(),
+        projectId: z.string().describe('defaults to the Inbox project').optional(),
+        sectionId: z.string().optional(),
+        labelIds: z.array(z.string()).optional(),
       },
     },
     async (args) => jsonResult(await taskService.createTask(userId, taskCreateSchema.parse(args))),
@@ -50,8 +68,11 @@ export function createMcpServer(userId: string): McpServer {
       description: 'List tasks with optional filters. Use tree=true for a nested tree.',
       inputSchema: {
         status: statusEnum.optional(),
+        priority: z.number().int().min(1).max(4).optional(),
         assignee: z.string().optional(),
         parentId: z.string().optional(),
+        projectId: z.string().optional(),
+        sectionId: z.string().optional(),
         root: z.boolean().optional(),
         tree: z.boolean().optional(),
         limit: z.number().int().optional(),
@@ -83,9 +104,16 @@ export function createMcpServer(userId: string): McpServer {
         description: z.string().nullable().optional(),
         assignee: z.string().nullable().optional(),
         dueDate: z.string().nullable().optional(),
+        deadline: z.string().nullable().optional(),
+        durationMinutes: z.number().int().positive().nullable().optional(),
+        recurrence: z.string().nullable().optional(),
         status: statusEnum.optional(),
+        priority: z.number().int().min(1).max(4).optional(),
         progress: z.number().int().min(0).max(100).optional(),
         parentId: z.string().nullable().optional(),
+        projectId: z.string().nullable().optional(),
+        sectionId: z.string().nullable().optional(),
+        labelIds: z.array(z.string()).optional(),
       },
     },
     async ({ id, ...patch }) =>

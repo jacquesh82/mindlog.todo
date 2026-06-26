@@ -3,15 +3,18 @@ import {
   taskAskSchema,
   taskCreateSchema,
   taskListQuerySchema,
+  taskQuickAddSchema,
   taskSearchSchema,
   taskService,
   taskUpdateSchema,
 } from '@mindlog/core';
 import { Router } from 'express';
 import { requireAuth, userId } from '../middleware/auth.js';
+import { registerTaskAttachmentRoutes } from './attachments.routes.js';
 
 export const tasksRouter: Router = Router();
 tasksRouter.use(requireAuth);
+registerTaskAttachmentRoutes(tasksRouter);
 
 tasksRouter.post('/', async (req, res) => {
   const task = await taskService.createTask(userId(req), taskCreateSchema.parse(req.body));
@@ -23,6 +26,22 @@ tasksRouter.get('/', async (req, res) => {
 });
 
 // Static sub-paths must be declared before the dynamic ":id" routes.
+tasksRouter.post('/quickadd', async (req, res) => {
+  const { text, tz } = taskQuickAddSchema.parse(req.body);
+  res.status(201).json(await taskService.quickAddTask(userId(req), text, tz));
+});
+
+tasksRouter.post('/parse', async (req, res) => {
+  const { text, tz } = taskQuickAddSchema.parse(req.body);
+  res.json(await taskService.previewQuickAdd(userId(req), text, tz));
+});
+
+// Ad-hoc filter query: GET /tasks/query?q=(p1 | p2) & @work & 7 days
+tasksRouter.get('/query', async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  res.json(await taskService.runFilterQuery(userId(req), q));
+});
+
 tasksRouter.post('/search', async (req, res) => {
   res.json(await taskService.searchTasks(userId(req), taskSearchSchema.parse(req.body)));
 });

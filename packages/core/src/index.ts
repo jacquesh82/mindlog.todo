@@ -6,6 +6,18 @@ export { AppError, BadRequest, Conflict, NotFound, ServiceUnavailable, Unauthori
 
 // Domain types & validation schemas
 export * from './domain/task.js';
+export * from './domain/recurrence.js';
+export * from './domain/quickadd.js';
+export * from './domain/filter-query.js';
+export * from './domain/filter.js';
+export * from './domain/project.js';
+export * from './domain/section.js';
+export * from './domain/label.js';
+export * from './domain/attachment.js';
+export * from './domain/calendar.js';
+export * from './domain/note.js';
+export * from './domain/ai-log.js';
+export * from './domain/karma.js';
 export * from './domain/user.js';
 
 // Database lifecycle
@@ -20,5 +32,15 @@ export { getEmbeddingProvider, embedOne, type EmbeddingProvider } from './embedd
 
 // Services — the canonical entry points
 export * as taskService from './service/task.service.js';
+export * as projectService from './service/project.service.js';
+export * as sectionService from './service/section.service.js';
+export * as labelService from './service/label.service.js';
+export * as filterService from './service/filter.service.js';
+export * as aiLogService from './service/ai-log.service.js';
+export * as karmaService from './service/karma.service.js';
+export * as attachmentService from './service/attachment.service.js';
+export * as calendarService from './service/calendar.service.js';
+export * as noteService from './service/note.service.js';
 export * as authService from './service/auth.service.js';
+export * as exportService from './service/export.service.js';
 export { askTasks } from './rag/ask.js';

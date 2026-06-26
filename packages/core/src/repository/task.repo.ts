@@ -1,20 +1,28 @@
 import type { Task, TaskListQuery, TaskSearchHit, TaskStatus, TaskUpdateInput } from '../domain/task.js';
 import { getPool, toVectorLiteral } from '../db/pool.js';
 
-const COLS = `id, user_id, parent_id, title, description, assignee, due_date,
-  status, progress, position, created_at, updated_at`;
+const COLS = `id, user_id, parent_id, project_id, section_id, title, description,
+  assignee, due_date, deadline::text AS deadline, duration_minutes, recurrence_rule,
+  status, priority, progress, position, completed_at, created_at, updated_at`;
 
 interface Row {
   id: string;
   user_id: string;
   parent_id: string | null;
+  project_id: string | null;
+  section_id: string | null;
   title: string;
   description: string | null;
   assignee: string | null;
   due_date: Date | null;
+  deadline: string | null;
+  duration_minutes: number | null;
+  recurrence_rule: string | null;
   status: TaskStatus;
+  priority: number;
   progress: number;
   position: number;
+  completed_at: Date | null;
   created_at: Date;
   updated_at: Date;
   score?: number;
@@ -25,13 +33,21 @@ function mapRow(r: Row): Task {
     id: r.id,
     userId: r.user_id,
     parentId: r.parent_id,
+    projectId: r.project_id,
+    sectionId: r.section_id,
     title: r.title,
     description: r.description,
     assignee: r.assignee,
     dueDate: r.due_date ? r.due_date.toISOString() : null,
+    deadline: r.deadline,
+    durationMinutes: r.duration_minutes,
+    recurrence: r.recurrence_rule,
     status: r.status,
+    priority: r.priority,
     progress: r.progress,
     position: r.position,
+    labelIds: [], // filled by the service-layer label enrichment
+    completedAt: r.completed_at ? r.completed_at.toISOString() : null,
     createdAt: r.created_at.toISOString(),
     updatedAt: r.updated_at.toISOString(),
   };
@@ -42,9 +58,15 @@ export interface InsertTaskFields {
   description?: string | null;
   assignee?: string | null;
   dueDate?: Date | null;
+  deadline?: string | null;
+  durationMinutes?: number | null;
+  recurrence?: string | null;
   status?: TaskStatus;
+  priority?: number;
   progress?: number;
   parentId?: string | null;
+  projectId?: string | null;
+  sectionId?: string | null;
   position?: number;
 }
 
@@ -55,17 +77,24 @@ export async function insert(
 ): Promise<Task> {
   const { rows } = await getPool().query<Row>(
     `INSERT INTO tasks
-       (user_id, parent_id, title, description, assignee, due_date, status, progress, position, embedding)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::vector)
+       (user_id, parent_id, project_id, section_id, title, description, assignee,
+        due_date, deadline, duration_minutes, recurrence_rule, status, priority, progress, position, embedding)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::vector)
      RETURNING ${COLS}`,
     [
       userId,
       fields.parentId ?? null,
+      fields.projectId ?? null,
+      fields.sectionId ?? null,
       fields.title,
       fields.description ?? null,
       fields.assignee ?? null,
       fields.dueDate ?? null,
+      fields.deadline ?? null,
+      fields.durationMinutes ?? null,
+      fields.recurrence ?? null,
       fields.status ?? 'todo',
+      fields.priority ?? 4,
       fields.progress ?? 0,
       fields.position ?? 0,
       embedding ? toVectorLiteral(embedding) : null,
@@ -90,6 +119,41 @@ export async function list(userId: string, q: TaskListQuery): Promise<Task[]> {
     where += ` AND status = $${i++}`;
     params.push(q.status);
   }
+  if (q.priority) {
+    where += ` AND priority = $${i++}`;
+    params.push(q.priority);
+  }
+  if (q.projectId) {
+    where += ` AND project_id = $${i++}`;
+    params.push(q.projectId);
+  }
+  if (q.sectionId) {
+    where += ` AND section_id = $${i++}`;
+    params.push(q.sectionId);
+  }
+  if (q.labelId) {
+    where += ` AND id IN (SELECT task_id FROM task_labels WHERE label_id = $${i++})`;
+    params.push(q.labelId);
+  }
+  if (q.dueBefore) {
+    where += ` AND due_date < $${i++}`;
+    params.push(q.dueBefore);
+  }
+  if (q.dueAfter) {
+    where += ` AND due_date >= $${i++}`;
+    params.push(q.dueAfter);
+  }
+  if (q.overdue) {
+    where += ` AND due_date < now() AND status NOT IN ('done','cancelled')`;
+  }
+  if (q.noDate) {
+    where += ' AND due_date IS NULL';
+  }
+  if (q.completed === true) {
+    where += ` AND status = 'done'`;
+  } else if (q.completed === false) {
+    where += ` AND status NOT IN ('done','cancelled')`;
+  }
   if (q.assignee) {
     where += ` AND assignee = $${i++}`;
     params.push(q.assignee);
@@ -113,6 +177,25 @@ export async function list(userId: string, q: TaskListQuery): Promise<Task[]> {
   return rows.map(mapRow);
 }
 
+/**
+ * List a user's tasks matching a compiled filter predicate. The predicate's
+ * placeholders must start at $2 (compileFilter(..., startIndex = 2)), since $1
+ * is the user id.
+ */
+export async function listByPredicate(
+  userId: string,
+  predicateSql: string,
+  predicateParams: unknown[],
+): Promise<Task[]> {
+  const { rows } = await getPool().query<Row>(
+    `SELECT ${COLS} FROM tasks
+     WHERE user_id = $1 AND (${predicateSql})
+     ORDER BY priority, due_date NULLS LAST, position, created_at`,
+    [userId, ...predicateParams],
+  );
+  return rows.map(mapRow);
+}
+
 /** All of a user's tasks (used to assemble a tree in memory). */
 export async function listAll(userId: string): Promise<Task[]> {
   const { rows } = await getPool().query<Row>(
@@ -127,6 +210,7 @@ export async function update(
   id: string,
   patch: TaskUpdateInput,
   embedding: number[] | null | undefined,
+  completedAt?: Date | null,
 ): Promise<Task | null> {
   const sets: string[] = [];
   const vals: unknown[] = [];
@@ -139,10 +223,17 @@ export async function update(
   if (patch.description !== undefined) set('description', patch.description);
   if (patch.assignee !== undefined) set('assignee', patch.assignee);
   if (patch.dueDate !== undefined) set('due_date', patch.dueDate);
+  if (patch.deadline !== undefined) set('deadline', patch.deadline);
+  if (patch.durationMinutes !== undefined) set('duration_minutes', patch.durationMinutes);
+  if (patch.recurrence !== undefined) set('recurrence_rule', patch.recurrence);
   if (patch.status !== undefined) set('status', patch.status);
+  if (patch.priority !== undefined) set('priority', patch.priority);
   if (patch.progress !== undefined) set('progress', patch.progress);
   if (patch.position !== undefined) set('position', patch.position);
   if (patch.parentId !== undefined) set('parent_id', patch.parentId);
+  if (patch.projectId !== undefined) set('project_id', patch.projectId);
+  if (patch.sectionId !== undefined) set('section_id', patch.sectionId);
+  if (completedAt !== undefined) set('completed_at', completedAt);
   if (embedding !== undefined) {
     sets.push(`embedding = $${i++}::vector`);
     vals.push(embedding === null ? null : toVectorLiteral(embedding));
@@ -183,6 +274,34 @@ export async function descendantIds(userId: string, id: string): Promise<string[
     [userId, id],
   );
   return rows.map((r) => r.id);
+}
+
+/** Replace a task's label set (caller must have validated ownership). */
+export async function setTaskLabels(taskId: string, labelIds: string[]): Promise<void> {
+  const pool = getPool();
+  await pool.query('DELETE FROM task_labels WHERE task_id = $1', [taskId]);
+  if (labelIds.length === 0) return;
+  const values = labelIds.map((_, idx) => `($1, $${idx + 2})`).join(',');
+  await pool.query(
+    `INSERT INTO task_labels (task_id, label_id) VALUES ${values} ON CONFLICT DO NOTHING`,
+    [taskId, ...labelIds],
+  );
+}
+
+/** Map of taskId -> its label ids, for a batch of tasks (avoids N+1 reads). */
+export async function labelsByTask(taskIds: string[]): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (taskIds.length === 0) return map;
+  const { rows } = await getPool().query<{ task_id: string; label_id: string }>(
+    `SELECT task_id, label_id FROM task_labels WHERE task_id = ANY($1::uuid[])`,
+    [taskIds],
+  );
+  for (const r of rows) {
+    const list = map.get(r.task_id);
+    if (list) list.push(r.label_id);
+    else map.set(r.task_id, [r.label_id]);
+  }
+  return map;
 }
 
 export async function search(

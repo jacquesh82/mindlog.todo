@@ -1,3 +1,53 @@
+@import 'tailwindcss';
+
+/* Notes rich-text content. Tailwind's preflight strips list markers and table
+   borders, so restore them inside the editable note boxes. */
+.notes-box ul { list-style: disc; padding-left: 1.4em; margin: 0.2em 0; }
+.notes-box ol { list-style: decimal; padding-left: 1.4em; margin: 0.2em 0; }
+.notes-box li { margin: 0.1em 0; }
+.notes-box table { border-collapse: collapse; }
+.notes-box td, .notes-box th {
+  border: 1px solid var(--color-line);
+  padding: 4px 8px;
+  min-width: 40px;
+}
+.notes-box .note-check {
+  cursor: pointer;
+  user-select: none;
+  margin-right: 2px;
+  color: var(--color-brand);
+}
+
+/* mindlog design tokens — a Todoist-like palette in mindlog red. Exposed to
+   Tailwind v4 utilities (e.g. bg-brand, text-brand) via @theme. */
+@theme {
+  --color-brand: #db4c3f;
+  --color-brand-hover: #c53727;
+  --color-brand-soft: #fde8e6;
+  --color-ink: #202020;
+  --color-muted: #808080;
+  --color-line: #ececec;
+  --color-surface: #ffffff;
+  --color-sidebar: #fafafa;
+  --color-p1: #d1453b;
+  --color-p2: #eb8909;
+  --color-p3: #246fe0;
+  --color-p4: #808080;
+}
+
+/* Dark mode: override the @theme tokens (higher specificity than :root) so all
+   Tailwind utilities like bg-surface / text-ink follow the theme at runtime. */
+:root[data-theme='dark'] {
+  --color-brand: #e35d50;
+  --color-brand-hover: #f06a5d;
+  --color-brand-soft: #3a2320;
+  --color-ink: #e6e8ec;
+  --color-muted: #8b93a1;
+  --color-line: #2a2f3a;
+  --color-surface: #181b22;
+  --color-sidebar: #14171d;
+}
+
 /* Light theme (default) */
 :root {
   --bg: #f6f7f9;
@@ -35,7 +85,10 @@ body {
   color: var(--text);
 }
 
-button {
+/* Legacy element styles, scoped to the pages not yet migrated to Tailwind
+   (login + settings). Bare `button {}` rules would otherwise win over Tailwind's
+   layered utilities and repaint the new UI. */
+.legacy button {
   cursor: pointer;
   border: 1px solid var(--border);
   background: var(--accent);
@@ -44,15 +97,15 @@ button {
   border-radius: 8px;
   font-size: 0.9rem;
 }
-button.link {
+.legacy button.link {
   background: none;
   border: none;
   color: var(--accent);
   padding: 0.2rem 0.4rem;
 }
-button.link.danger { color: var(--danger); }
-button.active { outline: 2px solid var(--accent); }
-button.icon-btn {
+.legacy button.link.danger { color: var(--danger); }
+.legacy button.active { outline: 2px solid var(--accent); }
+.legacy button.icon-btn {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid var(--border);
@@ -63,7 +116,7 @@ button.icon-btn {
 .login-shell { display: grid; gap: 0.6rem; justify-items: end; }
 .login-topbar { display: flex; }
 
-input, textarea, select {
+.legacy input, .legacy textarea, .legacy select {
   background: var(--panel-2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -71,7 +124,7 @@ input, textarea, select {
   padding: 0.5rem 0.6rem;
   font: inherit;
 }
-textarea { width: 100%; min-height: 3rem; }
+.legacy textarea { width: 100%; min-height: 3rem; }
 
 .center { min-height: 100vh; display: grid; place-items: center; }
 .muted { color: var(--muted); }
@@ -110,7 +163,7 @@ textarea { width: 100%; min-height: 3rem; }
 .app header h1 { font-size: 1.1rem; margin: 0; }
 .app header nav { display: flex; gap: 0.5rem; }
 .app header .user { margin-left: auto; display: flex; align-items: center; gap: 0.6rem; }
-main { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
+.app main { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
 
 .tasks-page { display: grid; grid-template-columns: 1fr 320px; gap: 1.2rem; align-items: start; }
 @media (max-width: 820px) { .tasks-page { grid-template-columns: 1fr; } }

@@ -1,4 +1,27 @@
-import type { ApiKey, AskResult, AuthResult, Task, TaskHit, TaskStatus, User } from '../types';
+import type {
+  AiLog,
+  AiUsage,
+  ApiKey,
+  Attachment,
+  CalendarSource,
+  ExternalEvent,
+  Notebook,
+  NotePage,
+  NotePageSummary,
+  AskResult,
+  AuthResult,
+  Filter,
+  Karma,
+  Label,
+  Project,
+  ProjectViewMode,
+  QuickAddPreview,
+  Section,
+  Task,
+  TaskHit,
+  TaskStatus,
+  User,
+} from '../types';
 
 const API: string = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const REFRESH_KEY = 'mindlog_refresh';
@@ -77,9 +100,26 @@ export interface TaskInput {
   description?: string | null;
   assignee?: string | null;
   dueDate?: string | null;
+  deadline?: string | null;
+  durationMinutes?: number | null;
+  recurrence?: string | null;
   status?: TaskStatus;
+  priority?: number;
   progress?: number;
   parentId?: string | null;
+  projectId?: string | null;
+  sectionId?: string | null;
+  labelIds?: string[];
+}
+
+export interface ProjectInput {
+  name: string;
+  color?: string | null;
+  parentId?: string | null;
+  isFavorite?: boolean;
+  viewMode?: ProjectViewMode;
+  position?: number;
+  archived?: boolean;
 }
 
 export const api = {
@@ -133,17 +173,173 @@ export const api = {
   deleteTask(id: string): Promise<void> {
     return request<void>(`/api/v1/tasks/${id}`, { method: 'DELETE' });
   },
+  quickAdd(text: string): Promise<Task> {
+    // Send the local tz offset (minutes east of UTC) so "9h" parses in local time.
+    const tz = -new Date().getTimezoneOffset();
+    return request<Task>('/api/v1/tasks/quickadd', {
+      method: 'POST',
+      body: JSON.stringify({ text, tz }),
+    });
+  },
+  parseQuickAdd(text: string): Promise<QuickAddPreview> {
+    const tz = -new Date().getTimezoneOffset();
+    return request<QuickAddPreview>('/api/v1/tasks/parse', {
+      method: 'POST',
+      body: JSON.stringify({ text, tz }),
+    });
+  },
+  runQuery(q: string): Promise<Task[]> {
+    return request<Task[]>(`/api/v1/tasks/query?q=${encodeURIComponent(q)}`);
+  },
   search(query: string, k = 10): Promise<TaskHit[]> {
     return request<TaskHit[]>('/api/v1/tasks/search', {
       method: 'POST',
       body: JSON.stringify({ query, k }),
     });
   },
-  ask(question: string, k = 8): Promise<AskResult> {
+
+  // calendar sources (iCal / Google subscription feeds)
+  listCalendarSources(): Promise<CalendarSource[]> {
+    return request<CalendarSource[]>('/api/v1/calendar/sources');
+  },
+  createCalendarSource(input: { name: string; url: string; color?: string | null }): Promise<CalendarSource> {
+    return request<CalendarSource>('/api/v1/calendar/sources', { method: 'POST', body: JSON.stringify(input) });
+  },
+  deleteCalendarSource(id: string): Promise<void> {
+    return request<void>(`/api/v1/calendar/sources/${id}`, { method: 'DELETE' });
+  },
+  calendarEvents(): Promise<ExternalEvent[]> {
+    return request<ExternalEvent[]>('/api/v1/calendar/events');
+  },
+
+  // notes (OneNote-lite)
+  listNotebooks(): Promise<Notebook[]> {
+    return request<Notebook[]>('/api/v1/notes/notebooks');
+  },
+  createNotebook(name: string, color?: string | null): Promise<Notebook> {
+    return request<Notebook>('/api/v1/notes/notebooks', { method: 'POST', body: JSON.stringify({ name, color }) });
+  },
+  updateNotebook(id: string, patch: { name?: string; color?: string | null }): Promise<Notebook> {
+    return request<Notebook>(`/api/v1/notes/notebooks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteNotebook(id: string): Promise<void> {
+    return request<void>(`/api/v1/notes/notebooks/${id}`, { method: 'DELETE' });
+  },
+  listPages(notebookId: string): Promise<NotePageSummary[]> {
+    return request<NotePageSummary[]>(`/api/v1/notes/notebooks/${notebookId}/pages`);
+  },
+  createPage(notebookId: string, title?: string): Promise<NotePage> {
+    return request<NotePage>(`/api/v1/notes/notebooks/${notebookId}/pages`, { method: 'POST', body: JSON.stringify({ title }) });
+  },
+  getPage(id: string): Promise<NotePage> {
+    return request<NotePage>(`/api/v1/notes/pages/${id}`);
+  },
+  updatePage(id: string, patch: { title?: string; content?: string; position?: number; inRag?: boolean; color?: string | null }): Promise<NotePage> {
+    return request<NotePage>(`/api/v1/notes/pages/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deletePage(id: string): Promise<void> {
+    return request<void>(`/api/v1/notes/pages/${id}`, { method: 'DELETE' });
+  },
+  duplicatePage(id: string): Promise<NotePage> {
+    return request<NotePage>(`/api/v1/notes/pages/${id}/duplicate`, { method: 'POST' });
+  },
+  setNotebookRag(notebookId: string, inRag: boolean): Promise<{ updated: number }> {
+    return request<{ updated: number }>(`/api/v1/notes/notebooks/${notebookId}/rag`, {
+      method: 'POST',
+      body: JSON.stringify({ inRag }),
+    });
+  },
+
+  // attachments (feed the RAG)
+  listAttachments(taskId: string): Promise<Attachment[]> {
+    return request<Attachment[]>(`/api/v1/tasks/${taskId}/attachments`);
+  },
+  addAttachment(taskId: string, a: { filename: string; mime?: string; content: string }): Promise<Attachment> {
+    return request<Attachment>(`/api/v1/tasks/${taskId}/attachments`, { method: 'POST', body: JSON.stringify(a) });
+  },
+  deleteAttachment(id: string): Promise<void> {
+    return request<void>(`/api/v1/attachments/${id}`, { method: 'DELETE' });
+  },
+
+  // projects
+  listProjects(includeArchived = false): Promise<Project[]> {
+    return request<Project[]>(`/api/v1/projects${includeArchived ? '?includeArchived=true' : ''}`);
+  },
+  createProject(input: ProjectInput): Promise<Project> {
+    return request<Project>('/api/v1/projects', { method: 'POST', body: JSON.stringify(input) });
+  },
+  updateProject(id: string, patch: Partial<ProjectInput>): Promise<Project> {
+    return request<Project>(`/api/v1/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteProject(id: string): Promise<void> {
+    return request<void>(`/api/v1/projects/${id}`, { method: 'DELETE' });
+  },
+
+  // sections
+  listSections(projectId: string): Promise<Section[]> {
+    return request<Section[]>(`/api/v1/sections?projectId=${projectId}`);
+  },
+  createSection(projectId: string, name: string, position?: number): Promise<Section> {
+    return request<Section>('/api/v1/sections', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, name, position }),
+    });
+  },
+  updateSection(id: string, patch: { name?: string; position?: number }): Promise<Section> {
+    return request<Section>(`/api/v1/sections/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteSection(id: string): Promise<void> {
+    return request<void>(`/api/v1/sections/${id}`, { method: 'DELETE' });
+  },
+
+  // labels
+  listLabels(): Promise<Label[]> {
+    return request<Label[]>('/api/v1/labels');
+  },
+  createLabel(name: string, color?: string | null, isFavorite?: boolean): Promise<Label> {
+    return request<Label>('/api/v1/labels', { method: 'POST', body: JSON.stringify({ name, color, isFavorite }) });
+  },
+  updateLabel(id: string, patch: { name?: string; color?: string | null; isFavorite?: boolean }): Promise<Label> {
+    return request<Label>(`/api/v1/labels/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteLabel(id: string): Promise<void> {
+    return request<void>(`/api/v1/labels/${id}`, { method: 'DELETE' });
+  },
+
+  // filters
+  listFilters(): Promise<Filter[]> {
+    return request<Filter[]>('/api/v1/filters');
+  },
+  createFilter(input: { name: string; query: string; color?: string | null }): Promise<Filter> {
+    return request<Filter>('/api/v1/filters', { method: 'POST', body: JSON.stringify(input) });
+  },
+  updateFilter(id: string, patch: { name?: string; query?: string; color?: string | null }): Promise<Filter> {
+    return request<Filter>(`/api/v1/filters/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteFilter(id: string): Promise<void> {
+    return request<void>(`/api/v1/filters/${id}`, { method: 'DELETE' });
+  },
+  runFilter(id: string): Promise<Task[]> {
+    return request<Task[]>(`/api/v1/filters/${id}/tasks`);
+  },
+  ask(question: string, k = 8, notebookIds?: string[]): Promise<AskResult> {
     return request<AskResult>('/api/v1/tasks/ask', {
       method: 'POST',
-      body: JSON.stringify({ question, k }),
+      body: JSON.stringify({ question, k, notebookIds }),
     });
+  },
+
+  // karma
+  getKarma(): Promise<Karma> {
+    return request<Karma>('/api/v1/karma');
+  },
+
+  // AI activity
+  aiUsage(): Promise<AiUsage> {
+    return request<AiUsage>('/api/v1/ai/usage');
+  },
+  aiLogs(limit = 50): Promise<AiLog[]> {
+    return request<AiLog[]>(`/api/v1/ai/logs?limit=${limit}`);
   },
 
   // api keys
@@ -155,5 +351,10 @@ export const api = {
   },
   deleteApiKey(id: string): Promise<void> {
     return request<void>(`/api/v1/api-keys/${id}`, { method: 'DELETE' });
+  },
+
+  // full data export (backup / portability)
+  exportData(): Promise<Record<string, unknown>> {
+    return request<Record<string, unknown>>('/api/v1/export');
   },
 };

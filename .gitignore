@@ -31,5 +31,10 @@ certs/
 # local dual-graph MCP state
 .dual-graph/
 
+# Claude / local AI assistant context (not shared via git)
+CLAUDE.md
+CONTEXT.md
+.claude/
+
 # local compose overrides
 docker-compose.override.yml

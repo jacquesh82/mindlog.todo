@@ -66,7 +66,7 @@ Route your public HTTPS host to the web container's HTTP port. Example nginx:
 ```nginx
 server {
   listen 443 ssl;
-  server_name todo.example.com;
+  server_name todo.mindlog.today;
   # ... your ssl_certificate / Let's Encrypt config ...
   client_max_body_size 16m;            # note pages can carry pasted images
   location / {
@@ -84,7 +84,7 @@ server {
 Caddy equivalent:
 
 ```
-todo.example.com {
+todo.mindlog.today {
   reverse_proxy 127.0.0.1:8080
   request_body { max_size 16MB }
 }

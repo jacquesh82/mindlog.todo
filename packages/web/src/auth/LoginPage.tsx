@@ -111,14 +111,14 @@ export function LoginPage() {
             </button>
           )}
 
-          <a className="google-btn" href={api.mindlogIdUrl()}>
+          <a className="google-btn mindlogid-btn" href={api.mindlogIdUrl()}>
             <img
               src={`${import.meta.env.BASE_URL}milo.svg`}
               alt=""
               aria-hidden="true"
               className="provider-icon"
             />
-            {t('login.mindlogIdBtn')}
+            <span className="mindlogid-label">{t('login.mindlogIdBtn')}</span>
           </a>
           <a className="google-btn" href={api.googleUrl()}>
             Sign in with Google

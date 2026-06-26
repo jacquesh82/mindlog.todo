@@ -154,6 +154,33 @@ body {
 }
 .auth-card > .google-btn { margin-top: 0.5rem; }
 .provider-icon { width: 18px; height: 18px; }
+
+/* "Sign in with mindlog id": animated rainbow label + border. */
+.mindlogid-btn {
+  border-color: transparent;
+  background-image: linear-gradient(var(--panel), var(--panel)),
+    linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #5856d6, #ff2d55, #ff3b30);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  background-size: 100% 100%, 200% auto;
+  animation: mindlogid-rainbow 4s linear infinite;
+}
+.mindlogid-label {
+  background-image: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #5856d6, #ff2d55, #ff3b30);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  font-weight: 600;
+  animation: mindlogid-rainbow 4s linear infinite;
+}
+@keyframes mindlogid-rainbow {
+  to { background-position: 200% center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mindlogid-btn, .mindlogid-label { animation: none; }
+}
 .forgot-link { display: block; margin: -0.3rem 0 0.2rem auto; font-size: 0.82rem; }
 .info { color: var(--accent); margin: 0.5rem 0; font-size: 0.88rem; }
 .switch { text-align: center; }

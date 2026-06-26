@@ -1,4 +1,5 @@
 import { exchangeGoogleCode, getGoogleAuthUrl } from '../auth/google.js';
+import { exchangeMindlogIdCode, getMindlogIdAuthUrl } from '../auth/mindlog-id.js';
 import { signAccessToken } from '../auth/jwt.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { generateApiKey, generateRefreshToken, parseDurationMs, sha256 } from '../auth/tokens.js';
@@ -56,6 +57,7 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     email: row.email,
     displayName: row.display_name,
     googleSub: row.google_sub,
+    mindlogIdSub: row.mindlog_id_sub,
     createdAt: row.created_at.toISOString(),
   });
 }
@@ -116,6 +118,23 @@ export async function loginWithGoogle(code: string): Promise<AuthResult> {
   const profile = await exchangeGoogleCode(code);
   const user = await userRepo.upsertGoogleUser({
     googleSub: profile.sub,
+    email: profile.email,
+    displayName: profile.name,
+  });
+  await projectRepo.ensureInbox(user.id);
+  return issueTokens(user);
+}
+
+// --- mindlog id (central OIDC provider) ---
+
+export function mindlogIdAuthUrl(state: string): Promise<string> {
+  return getMindlogIdAuthUrl(state);
+}
+
+export async function loginWithMindlogId(code: string): Promise<AuthResult> {
+  const profile = await exchangeMindlogIdCode(code);
+  const user = await userRepo.upsertMindlogIdUser({
+    sub: profile.sub,
     email: profile.email,
     displayName: profile.name,
   });

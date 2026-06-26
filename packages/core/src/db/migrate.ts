@@ -350,6 +350,10 @@ function migrations(): Migration[] {
           ON password_reset_tokens (user_id);
       `,
     },
+    {
+      id: '019_mindlog_id',
+      sql: /* sql */ `ALTER TABLE users ADD COLUMN IF NOT EXISTS mindlog_id_sub TEXT UNIQUE;`,
+    },
   ];
 }
 

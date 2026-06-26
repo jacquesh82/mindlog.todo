@@ -39,6 +39,7 @@ export interface User {
   email: string;
   displayName: string | null;
   googleSub: string | null;
+  mindlogIdSub: string | null;
   createdAt: string;
 }
 

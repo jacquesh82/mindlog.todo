@@ -6,6 +6,7 @@ interface UserRow {
   email: string;
   password_hash: string | null;
   google_sub: string | null;
+  mindlog_id_sub: string | null;
   display_name: string | null;
   created_at: Date;
 }
@@ -16,6 +17,7 @@ function mapUser(r: UserRow): User {
     email: r.email,
     displayName: r.display_name,
     googleSub: r.google_sub,
+    mindlogIdSub: r.mindlog_id_sub,
     createdAt: r.created_at.toISOString(),
   };
 }
@@ -71,6 +73,35 @@ export async function upsertGoogleUser(input: {
     displayName: input.displayName,
     googleSub: input.googleSub,
   });
+}
+
+/** Find a user by mindlog-id subject, or by email, creating/linking as needed. */
+export async function upsertMindlogIdUser(input: {
+  sub: string;
+  email: string;
+  displayName?: string | null;
+}): Promise<User> {
+  const pool = getPool();
+  const bySub = await pool.query<UserRow>('SELECT * FROM users WHERE mindlog_id_sub = $1', [
+    input.sub,
+  ]);
+  if (bySub.rows[0]) return mapUser(bySub.rows[0]);
+
+  const byEmail = await pool.query<UserRow>('SELECT * FROM users WHERE email = $1', [input.email]);
+  if (byEmail.rows[0]) {
+    const linked = await pool.query<UserRow>(
+      'UPDATE users SET mindlog_id_sub = $1 WHERE id = $2 RETURNING *',
+      [input.sub, byEmail.rows[0].id],
+    );
+    return mapUser(linked.rows[0]!);
+  }
+
+  const { rows } = await pool.query<UserRow>(
+    `INSERT INTO users (email, password_hash, display_name, mindlog_id_sub)
+     VALUES ($1, NULL, $2, $3) RETURNING *`,
+    [input.email, input.displayName ?? null, input.sub],
+  );
+  return mapUser(rows[0]!);
 }
 
 // --- refresh tokens ---

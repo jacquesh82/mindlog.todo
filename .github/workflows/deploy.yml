@@ -1,0 +1,135 @@
+name: Deploy to str01
+
+# Manual button (Actions tab) or pushing a version tag like v1.0.0.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+# Cancel an in-flight deploy if a newer one starts.
+concurrency:
+  group: deploy-str01
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  # ghcr.io/<owner>/<repo> — lowercased below into IMAGE_PREFIX.
+  IMAGE_BASE: ${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1) Build the api + web images and push them to GHCR.
+  # ---------------------------------------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag and lowercase prefix
+        id: meta
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="$(git rev-parse --short HEAD)"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "prefix=${REGISTRY}/$(echo "$IMAGE_BASE" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/server/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.prefix }}/api:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.prefix }}/api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Build & push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/web/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=
+          tags: |
+            ${{ steps.meta.outputs.prefix }}/web:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.prefix }}/web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  # ---------------------------------------------------------------------------
+  # 2) Ship compose + nginx config to str01 over SSH and roll the stack.
+  # ---------------------------------------------------------------------------
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy deploy files to str01
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.STR01_HOST }}
+          username: ${{ secrets.STR01_USER }}
+          key: ${{ secrets.STR01_SSH_KEY }}
+          port: ${{ secrets.STR01_SSH_PORT || 22 }}
+          source: "docker-compose.prod.yml,packages/web/nginx.prod.conf"
+          # Relative target lands in the SSH user's home dir (tilde is unreliable).
+          target: ${{ secrets.STR01_PATH || 'mindlog.todo' }}
+
+      - name: Pull images and roll the stack
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.STR01_HOST }}
+          username: ${{ secrets.STR01_USER }}
+          key: ${{ secrets.STR01_SSH_KEY }}
+          port: ${{ secrets.STR01_SSH_PORT || 22 }}
+          envs: IMAGE_TAG,GHCR_USER,GHCR_TOKEN
+          script_stop: true
+          script: |
+            set -euo pipefail
+            DIR="${{ secrets.STR01_PATH || 'mindlog.todo' }}"
+            cd "$DIR"
+            # scp preserved the source path; flatten nginx.prod.conf into the dir.
+            if [ -f packages/web/nginx.prod.conf ]; then
+              mv -f packages/web/nginx.prod.conf ./nginx.prod.conf
+              rm -rf packages
+            fi
+            if [ ! -f .env ]; then
+              echo "ERROR: $DIR/.env is missing. Create it from .env.prod.example before deploying." >&2
+              exit 1
+            fi
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            export IMAGE_TAG
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker image prune -f
+            docker logout ghcr.io
+        env:
+          IMAGE_TAG: ${{ needs.build.outputs.tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,16 +1,18 @@
 # Deploying mindlog.todo to str01
 
 CI/CD via GitHub Actions: images are built and pushed to **GHCR**, then **pulled
-on str01** over SSH. The web container serves plain HTTP behind str01's existing
-**reverse proxy** (which terminates TLS). Deploys run on a **version tag**
-(`v*`) or **manually** from the Actions tab.
+on str01** over SSH. str01's front edge (`edge-sni`) is an **L4 SNI-passthrough**
+proxy, so the web container **terminates TLS itself** on a loopback port (mirroring
+the sibling `jot.mindlog.today`). Deploys run on a **version tag** (`v*`) or
+**manually** from the Actions tab.
 
 ```
  git tag v1.0.0 ──► GitHub Actions
                       ├─ build api + web ─► ghcr.io/jacquesh82/mindlog.todo/{api,web}
                       └─ ssh str01 ─► docker compose -f docker-compose.prod.yml pull && up -d
                                          │
-                         str01 reverse proxy (TLS) ──► web:80 (loopback)
+   internet ─► edge-sni :443 (ssl_preread, by SNI) ─► 127.0.0.1:9743 ─► web (TLS, LE cert)
+                                                                          └─► api:8080 (same-origin /api)
 ```
 
 ## One-time setup
@@ -55,40 +57,49 @@ openssl rand -hex 32   # -> JWT_SECRET
 openssl rand -hex 24   # -> POSTGRES_PASSWORD
 ```
 
-Set `PUBLIC_URL` / `WEB_URL` to the real domain your reverse proxy exposes.
-The web container binds to `127.0.0.1:8080` by default (`WEB_HTTP_PORT`,
-`WEB_HTTP_BIND`) — point your proxy there.
+Set `PUBLIC_URL` / `WEB_URL` to the public domain. The web container terminates
+TLS itself and binds `127.0.0.1:9743` by default (`WEB_HTTPS_PORT`,
+`WEB_HTTPS_BIND`); `edge-sni` routes the domain there by SNI.
 
-### 3. Wire up the reverse proxy on str01
+### 3. TLS certificate
 
-Route your public HTTPS host to the web container's HTTP port. Example nginx:
+The web container reads `/etc/letsencrypt/live/todo.mindlog.today/` (mounted
+read-only). Issue the cert once via the edge's ACME webroot (http-01):
+
+```bash
+sudo certbot certonly --webroot \
+  -w /var/lib/docker/volumes/edge-certbot-webroot/_data \
+  -d todo.mindlog.today --keep-until-expiring
+```
+
+certbot installs a renewal timer automatically. The cert must exist **before**
+the web container starts (nginx won't boot without it).
+
+### 4. Add the SNI route to the edge
+
+`edge-sni` (nginx `stream` + `ssl_preread`) demuxes `:443` by hostname to each
+app's loopback TLS port. Add `todo.mindlog.today` to its map
+(`/srv/jot-src/deploy/str01/edge/nginx.conf`):
 
 ```nginx
-server {
-  listen 443 ssl;
-  server_name todo.mindlog.today;
-  # ... your ssl_certificate / Let's Encrypt config ...
-  client_max_body_size 16m;            # note pages can carry pasted images
-  location / {
-    proxy_pass http://127.0.0.1:8080;
-    proxy_set_header Host              $host;
-    proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;   # app sees original https
-    proxy_http_version 1.1;            # keep MCP/SSE streaming working
-    proxy_set_header Connection "";
-  }
+map $ssl_preread_server_name $backend {
+    jot.mindlog.today          jot_backend;
+    todo.mindlog.today         todo_backend;   # <-- add
+    ...
 }
+upstream todo_backend { server 127.0.0.1:9743; }   # <-- add
 ```
 
-Caddy equivalent:
-
-```
-todo.mindlog.today {
-  reverse_proxy 127.0.0.1:8080
-  request_body { max_size 16MB }
-}
-```
+> Edit the file **in place** (don't `sed -i`/rename — that swaps the inode and
+> the bind-mounted container keeps serving the old config). Validate in a
+> throwaway container, then reload — or recreate `edge-sni` to re-attach the
+> mount (brief blip for all tenants):
+>
+> ```bash
+> docker run --rm -v /srv/jot-src/deploy/str01/edge/nginx.conf:/etc/nginx/nginx.conf:ro \
+>   nginx:1.27-alpine nginx -t      # validate, no impact
+> docker restart edge-sni           # re-attach mount + load route
+> ```
 
 ## Deploying
 

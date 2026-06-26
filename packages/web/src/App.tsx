@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from './api/client';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
+import { ResetPasswordPage } from './auth/ResetPasswordPage';
 import { MainView } from './components/MainView';
 import { Sidebar } from './components/Sidebar';
 import { useI18n } from './i18n';
@@ -40,6 +41,26 @@ export function App() {
     reloadSidebar();
   }, [reloadSidebar]);
 
+  // Password-reset deep link (`/auth/reset?token=…`) — handled before the auth gate.
+  const resetToken = window.location.pathname.endsWith('/auth/reset')
+    ? new URLSearchParams(window.location.search).get('token')
+    : null;
+  if (resetToken)
+    return (
+      <div className="legacy flex min-h-screen flex-col items-center justify-center gap-6 bg-[var(--bg)]">
+        <div className="flex flex-col items-center gap-1.5">
+          <img src={`${import.meta.env.BASE_URL}milo.svg`} alt="Milo" className="h-16 w-16" />
+          <div className="text-lg font-semibold" style={{ color: 'var(--color-brand)' }}>
+            {t('app.name')}
+          </div>
+          <div className="text-sm" style={{ color: 'var(--color-muted)' }}>{t('login.tagline')}</div>
+        </div>
+        <div className="login-shell">
+          <ResetPasswordPage token={resetToken} />
+        </div>
+      </div>
+    );
+
   if (loading) return <div className="flex h-screen items-center justify-center text-muted">{t('common.loading')}</div>;
   if (!user)
     return (
@@ -55,7 +76,7 @@ export function App() {
           <LoginPage />
         </div>
         <a
-          href="https://id.mindlog.localhost"
+          href="https://id.mindlog.today/"
           target="_blank"
           rel="noreferrer"
           className="text-xs hover:underline"

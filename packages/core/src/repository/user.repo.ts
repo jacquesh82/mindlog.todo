@@ -104,6 +104,46 @@ export async function revokeRefreshToken(tokenHash: string): Promise<void> {
   );
 }
 
+/** Revoke every active refresh token for a user (e.g. after a password reset). */
+export async function revokeAllRefreshTokens(userId: string): Promise<void> {
+  await getPool().query(
+    'UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
+    [userId],
+  );
+}
+
+// --- password reset tokens ---
+
+export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+  await getPool().query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
+}
+
+export async function createPasswordResetToken(input: {
+  userId: string;
+  tokenHash: string;
+  expiresAt: Date;
+}): Promise<void> {
+  await getPool().query(
+    'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1,$2,$3)',
+    [input.userId, input.tokenHash, input.expiresAt],
+  );
+}
+
+export async function findValidPasswordResetToken(
+  tokenHash: string,
+): Promise<{ id: string; userId: string } | null> {
+  const { rows } = await getPool().query<{ id: string; user_id: string }>(
+    `SELECT id, user_id FROM password_reset_tokens
+     WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+    [tokenHash],
+  );
+  return rows[0] ? { id: rows[0].id, userId: rows[0].user_id } : null;
+}
+
+export async function consumePasswordResetToken(id: string): Promise<void> {
+  await getPool().query('UPDATE password_reset_tokens SET used_at = now() WHERE id = $1', [id]);
+}
+
 // --- api keys ---
 
 interface ApiKeyRow {

@@ -141,7 +141,10 @@ body {
 .auth-card h1 { margin: 0; }
 .auth-card form { display: grid; gap: 0.6rem; margin: 1rem 0; }
 .google-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   text-align: center;
   padding: 0.5rem;
   border: 1px solid var(--border);
@@ -149,6 +152,10 @@ body {
   color: var(--text);
   text-decoration: none;
 }
+.auth-card > .google-btn { margin-top: 0.5rem; }
+.provider-icon { width: 18px; height: 18px; }
+.forgot-link { display: block; margin: -0.3rem 0 0.2rem auto; font-size: 0.82rem; }
+.info { color: var(--accent); margin: 0.5rem 0; font-size: 0.88rem; }
 .switch { text-align: center; }
 
 /* App shell */

@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto';
 import {
   authService,
   config,
+  forgotPasswordSchema,
   googleEnabled,
   loginSchema,
   refreshSchema,
   registerSchema,
+  resetPasswordSchema,
   ServiceUnavailable,
   type AuthResult,
 } from '@mindlog/core';
@@ -40,6 +42,20 @@ authRouter.post('/refresh', async (req, res) => {
 authRouter.post('/logout', async (req, res) => {
   const { refreshToken } = refreshSchema.parse(req.body);
   await authService.logout(refreshToken);
+  res.status(204).end();
+});
+
+// --- password reset ---
+
+authRouter.post('/forgot-password', async (req, res) => {
+  const { email } = forgotPasswordSchema.parse(req.body);
+  await authService.requestPasswordReset(email);
+  res.status(202).json({ ok: true }); // always 202: never reveals whether the email exists
+});
+
+authRouter.post('/reset-password', async (req, res) => {
+  const { token, password } = resetPasswordSchema.parse(req.body);
+  await authService.resetPassword(token, password);
   res.status(204).end();
 });
 

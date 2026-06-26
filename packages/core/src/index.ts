@@ -1,7 +1,13 @@
 // Public surface of the shared service core. The REST API and the MCP server
 // both build on these exports — no business logic lives outside `core`.
 
-export { config, googleEnabled, type EmbeddingProviderId } from './config.js';
+export {
+  config,
+  googleEnabled,
+  mindlogIdEnabled,
+  mailEnabled,
+  type EmbeddingProviderId,
+} from './config.js';
 export { AppError, BadRequest, Conflict, NotFound, ServiceUnavailable, Unauthorized } from './errors.js';
 
 // Domain types & validation schemas

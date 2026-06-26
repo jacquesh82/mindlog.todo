@@ -4,9 +4,20 @@ import { hashPassword, verifyPassword } from '../auth/password.js';
 import { generateApiKey, generateRefreshToken, parseDurationMs, sha256 } from '../auth/tokens.js';
 import { config } from '../config.js';
 import type { ApiKey, AuthResult, LoginInput, RegisterInput, User } from '../domain/user.js';
-import { Conflict, Unauthorized } from '../errors.js';
+import { BadRequest, Conflict, Unauthorized } from '../errors.js';
+import { sendMail } from '../mail/mailer.js';
+import { passwordResetEmail } from '../mail/templates/password-reset.js';
 import * as projectRepo from '../repository/project.repo.js';
 import * as userRepo from '../repository/user.repo.js';
+
+/** Turn a duration like "1h" / "30m" / "2d" into a human label for emails. */
+function humanTtl(ttl: string): string {
+  const m = /^(\d+)\s*(m|h|d)?$/.exec(ttl.trim());
+  if (!m) return ttl;
+  const n = Number(m[1]);
+  const unit = m[2] === 'd' ? 'day' : m[2] === 'm' ? 'minute' : 'hour';
+  return `${n} ${unit}${n === 1 ? '' : 's'}`;
+}
 
 async function issueTokens(user: User): Promise<AuthResult> {
   const accessToken = signAccessToken(user.id);
@@ -61,6 +72,38 @@ export async function refresh(refreshToken: string): Promise<AuthResult> {
 
 export async function logout(refreshToken: string): Promise<void> {
   await userRepo.revokeRefreshToken(sha256(refreshToken));
+}
+
+// --- password reset ---
+
+/**
+ * Email a one-time reset link to the address, if it belongs to a local
+ * (password) account. Always resolves silently so callers cannot probe which
+ * emails are registered.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const row = await userRepo.findRowByEmail(email);
+  if (!row?.password_hash) return; // unknown email, or Google/mindlog-id-only account
+  const { token, hash } = generateRefreshToken();
+  const expiresAt = new Date(Date.now() + parseDurationMs(config.passwordResetTtl));
+  await userRepo.createPasswordResetToken({ userId: row.id, tokenHash: hash, expiresAt });
+  const resetUrl = `${config.webUrl.replace(/\/$/, '')}/auth/reset?token=${token}`;
+  const mail = passwordResetEmail({
+    resetUrl,
+    displayName: row.display_name,
+    expiresIn: humanTtl(config.passwordResetTtl),
+  });
+  await sendMail({ to: row.email, subject: mail.subject, mjml: mail.mjml, text: mail.text });
+}
+
+/** Consume a reset token and set a new password, revoking existing sessions. */
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const found = await userRepo.findValidPasswordResetToken(sha256(token));
+  if (!found) throw BadRequest('This reset link is invalid or has expired');
+  const passwordHash = await hashPassword(newPassword);
+  await userRepo.updatePasswordHash(found.userId, passwordHash);
+  await userRepo.consumePasswordResetToken(found.id);
+  await userRepo.revokeAllRefreshTokens(found.userId); // force re-login everywhere
 }
 
 // --- Google OAuth ---

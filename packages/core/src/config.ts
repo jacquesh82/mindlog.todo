@@ -62,8 +62,38 @@ export const config = {
     clientSecret: env('GOOGLE_CLIENT_SECRET'),
     redirectUri: env('GOOGLE_REDIRECT_URI', 'http://localhost:8080/api/v1/auth/google/callback'),
   },
+
+  // Central mindlog identity provider (OIDC) — "Sign in with mindlog id".
+  mindlogId: {
+    issuer: env('MINDLOG_ID_ISSUER', 'https://id.mindlog.today'),
+    clientId: env('MINDLOG_ID_CLIENT_ID'),
+    clientSecret: env('MINDLOG_ID_CLIENT_SECRET'),
+    redirectUri: env(
+      'MINDLOG_ID_REDIRECT_URI',
+      'http://localhost:8080/api/v1/auth/mindlog-id/callback',
+    ),
+  },
+
+  // Outbound email (password reset, etc.) — MJML templates sent over SMTP.
+  smtp: {
+    host: env('SMTP_HOST'),
+    port: intEnv('SMTP_PORT', 587),
+    user: env('SMTP_USER'),
+    pass: env('SMTP_PASS'),
+    secure: env('SMTP_SECURE') === 'true',
+    from: env('MAIL_FROM', 'mindlog <no-reply@mindlog.today>'),
+  },
+  passwordResetTtl: env('PASSWORD_RESET_TTL', '1h'),
 } as const;
 
 export function googleEnabled(): boolean {
   return Boolean(config.google.clientId && config.google.clientSecret);
+}
+
+export function mindlogIdEnabled(): boolean {
+  return Boolean(config.mindlogId.clientId && config.mindlogId.clientSecret);
+}
+
+export function mailEnabled(): boolean {
+  return Boolean(config.smtp.host);
 }

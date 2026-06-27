@@ -28,6 +28,17 @@ services:
       PORT: 8080
       PUBLIC_URL: https://todo.mindlog.localhost
       WEB_URL: https://todo.mindlog.localhost
+      # "Sign in with mindlog id" — server-to-server OIDC calls (discovery, token,
+      # userinfo) go to https://id.mindlog.localhost (Caddy + mkcert on the host).
+      # Trust the mkcert root CA mounted below so Node's fetch() accepts that cert.
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/mindlog-rootCA.pem
+    # Resolve id.mindlog.localhost to the host, where the shared dev Caddy
+    # terminates TLS for *.mindlog.localhost on :443.
+    extra_hosts:
+      - "id.mindlog.localhost:host-gateway"
+    volumes:
+      # Read-only mount of the mkcert root CA (created by scripts/gen-certs.sh).
+      - ./certs/rootCA.pem:/etc/ssl/certs/mindlog-rootCA.pem:ro
     expose:
       - "8080"
     depends_on:

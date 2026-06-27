@@ -1,6 +1,10 @@
 import { exchangeGoogleCode, getGoogleAuthUrl } from '../auth/google.js';
-import { exchangeMindlogIdCode, getMindlogIdAuthUrl } from '../auth/mindlog-id.js';
-import { signAccessToken } from '../auth/jwt.js';
+import {
+  exchangeMindlogIdCode,
+  getMindlogIdAuthUrl,
+  setMindlogIdRecoveryEmail,
+} from '../auth/mindlog-id.js';
+import { signAccessToken, signMindlogIdPending, verifyMindlogIdPending } from '../auth/jwt.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { generateApiKey, generateRefreshToken, parseDurationMs, sha256 } from '../auth/tokens.js';
 import { config } from '../config.js';
@@ -131,12 +135,50 @@ export function mindlogIdAuthUrl(state: string): Promise<string> {
   return getMindlogIdAuthUrl(state);
 }
 
-export async function loginWithMindlogId(code: string): Promise<AuthResult> {
+/**
+ * Result of a "Sign in with mindlog id" callback. When the IdP returns no email
+ * (handle-only account), we can't create the todo account yet — we hand back a
+ * short-lived pending token so the UI can collect an email and finish via
+ * {@link completeMindlogIdSignup}.
+ */
+export type MindlogIdLoginResult =
+  | { status: 'ok'; result: AuthResult }
+  | { status: 'need-email'; pendingToken: string };
+
+export async function loginWithMindlogId(code: string): Promise<MindlogIdLoginResult> {
   const profile = await exchangeMindlogIdCode(code);
+  if (!profile.email) {
+    return {
+      status: 'need-email',
+      pendingToken: signMindlogIdPending(profile.sub, profile.name ?? null, profile.accessToken),
+    };
+  }
   const user = await userRepo.upsertMindlogIdUser({
     sub: profile.sub,
     email: profile.email,
     displayName: profile.name,
+  });
+  await projectRepo.ensureInbox(user.id);
+  return { status: 'ok', result: await issueTokens(user) };
+}
+
+/** Finish a mindlog-id sign-in that lacked an email, using the address the user typed. */
+export async function completeMindlogIdSignup(pendingToken: string, email: string): Promise<AuthResult> {
+  const pending = verifyMindlogIdPending(pendingToken);
+  if (!pending) throw Unauthorized('Invalid or expired mindlog id session — please sign in again');
+  // Make mindlog id the single source of truth: store the email there too. The
+  // IdP won't overwrite an existing one, and a failure must not block sign-in.
+  if (pending.mlAccessToken) {
+    try {
+      await setMindlogIdRecoveryEmail(pending.mlAccessToken, email);
+    } catch {
+      /* best-effort — the todo account still gets the email below */
+    }
+  }
+  const user = await userRepo.upsertMindlogIdUser({
+    sub: pending.sub,
+    email,
+    displayName: pending.name,
   });
   await projectRepo.ensureInbox(user.id);
   return issueTokens(user);

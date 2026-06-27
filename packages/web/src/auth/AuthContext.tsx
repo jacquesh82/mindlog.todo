@@ -8,6 +8,10 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** True when a mindlog-id sign-in needs an email before the account can be created. */
+  mindlogIdNeedsEmail: boolean;
+  completeMindlogId: (email: string) => Promise<void>;
+  cancelMindlogId: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -21,6 +25,7 @@ export function useAuth(): AuthState {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingToken, setPendingToken] = useState<string | null>(null);
 
   async function loadUser(): Promise<void> {
     try {
@@ -32,7 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void (async () => {
-      // Google OAuth redirect returns tokens in the URL fragment.
+      // OAuth redirect returns either tokens or, for mindlog id without an email,
+      // a pending token in the URL fragment.
       if (window.location.hash.includes('access_token')) {
         const p = new URLSearchParams(window.location.hash.slice(1));
         const access = p.get('access_token');
@@ -40,6 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (access && refresh) setTokens(access, refresh);
         window.history.replaceState({}, '', window.location.pathname);
         await loadUser();
+        setLoading(false);
+        return;
+      }
+      if (window.location.hash.includes('mindlog_id_pending')) {
+        const p = new URLSearchParams(window.location.hash.slice(1));
+        const token = p.get('mindlog_id_pending');
+        window.history.replaceState({}, '', window.location.pathname);
+        if (token) setPendingToken(token);
         setLoading(false);
         return;
       }
@@ -63,6 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.logout();
       setUser(null);
     },
+    mindlogIdNeedsEmail: pendingToken !== null,
+    completeMindlogId: async (email) => {
+      if (!pendingToken) return;
+      await api.completeMindlogId(pendingToken, email);
+      setPendingToken(null);
+      await loadUser();
+    },
+    cancelMindlogId: () => setPendingToken(null),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

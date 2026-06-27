@@ -34,6 +34,16 @@ export const apiKeyCreateSchema = z.object({
 });
 export type ApiKeyCreateInput = z.infer<typeof apiKeyCreateSchema>;
 
+// "Sign in with mindlog id" can return a profile without an email (mindlog
+// accounts are handle-based; the recovery email is optional). In that case the
+// callback hands the SPA a short-lived pending token and we ask the user for an
+// email to finish creating/linking their todo account.
+export const completeMindlogIdSchema = z.object({
+  pendingToken: z.string().min(1),
+  email: z.email().max(320),
+});
+export type CompleteMindlogIdInput = z.infer<typeof completeMindlogIdSchema>;
+
 export interface User {
   id: string;
   email: string;

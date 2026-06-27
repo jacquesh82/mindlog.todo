@@ -6,7 +6,7 @@ import { useAuth } from './AuthContext';
 type Mode = 'login' | 'register' | 'forgot';
 
 export function LoginPage() {
-  const { login, register } = useAuth();
+  const { login, register, mindlogIdNeedsEmail, completeMindlogId, cancelMindlogId } = useAuth();
   const { t } = useI18n();
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
@@ -20,6 +20,58 @@ export function LoginPage() {
     setMode(next);
     setError(null);
     setInfo(null);
+  }
+
+  async function submitMindlogIdEmail(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await completeMindlogId(email);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // mindlog id signed the user in but the account has no email — ask for one to
+  // finish creating the todo account.
+  if (mindlogIdNeedsEmail) {
+    return (
+      <div className="auth-card">
+        <h1>mindlog.todo</h1>
+        <p className="muted">{t('login.mindlogIdEmailTitle')}</p>
+        <form onSubmit={submitMindlogIdEmail}>
+          <p className="muted" style={{ marginTop: 0 }}>{t('login.mindlogIdEmailHint')}</p>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            required
+            autoFocus
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          {error && <div className="error">{error}</div>}
+          <button type="submit" disabled={busy}>
+            {t('login.mindlogIdEmailSubmit')}
+          </button>
+          <p className="muted switch">
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                cancelMindlogId();
+                setError(null);
+                setEmail('');
+              }}
+            >
+              {t('login.backToLogin')}
+            </button>
+          </p>
+        </form>
+      </div>
+    );
   }
 
   async function submit(e: FormEvent) {

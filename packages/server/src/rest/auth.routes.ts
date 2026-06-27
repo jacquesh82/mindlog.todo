@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   authService,
+  completeMindlogIdSchema,
   config,
   forgotPasswordSchema,
   googleEnabled,
@@ -90,11 +91,26 @@ authRouter.get('/mindlog-id', async (_req, res) => {
 
 authRouter.get('/mindlog-id/callback', async (req, res) => {
   const code = typeof req.query.code === 'string' ? req.query.code : '';
-  const result = await authService.loginWithMindlogId(code);
+  const outcome = await authService.loginWithMindlogId(code);
+  // mindlog id returned no email: send the SPA a pending token so it can ask the
+  // user for one and finish via POST /mindlog-id/complete.
+  if (outcome.status === 'need-email') {
+    const fragment = new URLSearchParams({ mindlog_id_pending: outcome.pendingToken }).toString();
+    res.redirect(`${config.webUrl}/auth/callback#${fragment}`);
+    return;
+  }
+  const { result } = outcome;
   const fragment = new URLSearchParams({
     access_token: result.accessToken,
     refresh_token: result.refreshToken,
     expires_in: String(result.expiresIn),
   }).toString();
   res.redirect(`${config.webUrl}/auth/callback#${fragment}`);
+});
+
+// Finish a mindlog-id sign-in that lacked an email (the user typed one).
+authRouter.post('/mindlog-id/complete', async (req, res) => {
+  const { pendingToken, email } = completeMindlogIdSchema.parse(req.body);
+  const result = await authService.completeMindlogIdSignup(pendingToken, email);
+  res.json(authBody(result));
 });

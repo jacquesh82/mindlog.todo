@@ -12,8 +12,13 @@ interface OidcDiscovery {
 
 export interface MindlogIdProfile {
   sub: string;
-  email: string;
+  // mindlog accounts are handle-based; the email (recovery email) is optional on
+  // the IdP, so it may be absent. The caller then asks the user for one.
+  email: string | null;
   name?: string | null;
+  // The provider access token, kept so we can write the user-supplied email back
+  // to mindlog id (as their recovery email) when the profile had none.
+  accessToken: string;
 }
 
 let discoveryCache: OidcDiscovery | null = null;
@@ -71,6 +76,28 @@ export async function exchangeMindlogIdCode(code: string): Promise<MindlogIdProf
   });
   if (!userRes.ok) throw new Error(`mindlog id userinfo failed (${userRes.status})`);
   const profile = (await userRes.json()) as { sub?: string; email?: string; name?: string };
-  if (!profile.sub || !profile.email) throw new Error('mindlog id profile missing sub/email');
-  return { sub: profile.sub, email: profile.email, name: profile.name ?? null };
+  // sub is the stable identifier and is always present; email is optional (the
+  // caller collects one from the user when it's missing).
+  if (!profile.sub) throw new Error('mindlog id profile missing sub');
+  return {
+    sub: profile.sub,
+    email: profile.email ?? null,
+    name: profile.name ?? null,
+    accessToken: tokens.access_token,
+  };
+}
+
+/**
+ * Store the email the user typed as their mindlog id recovery email, so the
+ * central identity becomes the single source of truth (best-effort: the IdP
+ * won't overwrite an existing email and a failure must not block login).
+ */
+export async function setMindlogIdRecoveryEmail(accessToken: string, email: string): Promise<void> {
+  const base = config.mindlogId.issuer.replace(/\/$/, '');
+  const res = await fetch(`${base}/oauth/recovery-email`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(`mindlog id recovery-email failed (${res.status})`);
 }

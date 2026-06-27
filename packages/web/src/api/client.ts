@@ -158,6 +158,15 @@ export const api = {
   mindlogIdUrl(): string {
     return `${API}/api/v1/auth/mindlog-id`;
   },
+  /** Finish a mindlog-id sign-in when the IdP returned no email (user typed one). */
+  async completeMindlogId(pendingToken: string, email: string): Promise<AuthResult> {
+    const r = await request<AuthResult>('/api/v1/auth/mindlog-id/complete', {
+      method: 'POST',
+      body: JSON.stringify({ pendingToken, email }),
+    });
+    setTokens(r.accessToken, r.refreshToken);
+    return r;
+  },
   async forgotPassword(email: string): Promise<void> {
     await request('/api/v1/auth/forgot-password', {
       method: 'POST',

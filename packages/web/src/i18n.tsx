@@ -122,6 +122,10 @@ const en: Dict = {
   'login.resetSent': 'If an account exists for that email, a reset link is on its way.',
   'login.backToLogin': 'Back to sign in',
   'login.mindlogIdBtn': 'Sign in with mindlog id',
+  'login.mindlogIdEmailTitle': 'One more step',
+  'login.mindlogIdEmailHint':
+    "Your mindlog id has no email on file. Enter one to finish creating your account.",
+  'login.mindlogIdEmailSubmit': 'Continue',
   'reset.title': 'Choose a new password',
   'reset.password': 'New password',
   'reset.confirm': 'Confirm password',
@@ -303,6 +307,10 @@ const fr: Dict = {
   'login.resetSent': 'Si un compte existe pour cet e-mail, un lien de réinitialisation arrive.',
   'login.backToLogin': 'Retour à la connexion',
   'login.mindlogIdBtn': 'Se connecter avec mindlog id',
+  'login.mindlogIdEmailTitle': 'Encore une étape',
+  'login.mindlogIdEmailHint':
+    "Votre mindlog id n'a pas d'e-mail enregistré. Saisissez-en un pour finaliser la création de votre compte.",
+  'login.mindlogIdEmailSubmit': 'Continuer',
   'reset.title': 'Choisissez un nouveau mot de passe',
   'reset.password': 'Nouveau mot de passe',
   'reset.confirm': 'Confirmez le mot de passe',

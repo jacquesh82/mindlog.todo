@@ -12,6 +12,11 @@ if command -v mkcert >/dev/null 2>&1; then
   echo "Using mkcert (locally trusted CA)…"
   mkcert -install
   mkcert -cert-file "$DIR/cert.pem" -key-file "$DIR/key.pem" "$DOMAIN" localhost 127.0.0.1
+  # Copy the mkcert root CA so the api container can trust id.mindlog.localhost
+  # for the server-to-server OIDC calls ("Sign in with mindlog id"). Mounted into
+  # the container via NODE_EXTRA_CA_CERTS (see docker-compose.yml).
+  cp "$(mkcert -CAROOT)/rootCA.pem" "$DIR/rootCA.pem"
+  echo "mkcert root CA copied to ${DIR}/rootCA.pem"
 else
   echo "mkcert not found — generating a self-signed certificate with openssl."
   echo "(Tip: install mkcert for a browser-trusted cert.)"

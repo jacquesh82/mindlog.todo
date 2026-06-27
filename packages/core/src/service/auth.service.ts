@@ -2,7 +2,9 @@ import { exchangeGoogleCode, getGoogleAuthUrl } from '../auth/google.js';
 import {
   exchangeMindlogIdCode,
   getMindlogIdAuthUrl,
+  hasAgendaScope,
   setMindlogIdRecoveryEmail,
+  type MindlogIdTokens,
 } from '../auth/mindlog-id.js';
 import { signAccessToken, signMindlogIdPending, verifyMindlogIdPending } from '../auth/jwt.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
@@ -64,6 +66,13 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     mindlogIdSub: row.mindlog_id_sub,
     createdAt: row.created_at.toISOString(),
   });
+}
+
+/** Issue a fresh access+refresh session for a known user id (OAuth token endpoint). */
+export async function issueTokensForUserId(userId: string): Promise<AuthResult> {
+  const user = await userRepo.findById(userId);
+  if (!user) throw Unauthorized('User not found');
+  return issueTokens(user);
 }
 
 export async function refresh(refreshToken: string): Promise<AuthResult> {
@@ -145,12 +154,30 @@ export type MindlogIdLoginResult =
   | { status: 'ok'; result: AuthResult }
   | { status: 'need-email'; pendingToken: string };
 
+/** Persist the OAuth tokens + granted scope so we can later read the agenda. */
+async function storeMindlogIdConnection(userId: string, tokens: MindlogIdTokens): Promise<void> {
+  if (!tokens.refreshToken) return; // nothing durable to store (e.g. tests/stubs)
+  await userRepo.upsertMindlogIdConnection(userId, {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
+    scope: tokens.scope,
+  });
+}
+
 export async function loginWithMindlogId(code: string): Promise<MindlogIdLoginResult> {
   const profile = await exchangeMindlogIdCode(code);
   if (!profile.email) {
     return {
       status: 'need-email',
-      pendingToken: signMindlogIdPending(profile.sub, profile.name ?? null, profile.accessToken),
+      pendingToken: signMindlogIdPending({
+        sub: profile.sub,
+        name: profile.name ?? null,
+        accessToken: profile.accessToken,
+        refreshToken: profile.refreshToken,
+        expiresIn: profile.expiresIn,
+        scope: profile.scope,
+      }),
     };
   }
   const user = await userRepo.upsertMindlogIdUser({
@@ -159,6 +186,7 @@ export async function loginWithMindlogId(code: string): Promise<MindlogIdLoginRe
     displayName: profile.name,
   });
   await projectRepo.ensureInbox(user.id);
+  await storeMindlogIdConnection(user.id, profile);
   return { status: 'ok', result: await issueTokens(user) };
 }
 
@@ -168,9 +196,9 @@ export async function completeMindlogIdSignup(pendingToken: string, email: strin
   if (!pending) throw Unauthorized('Invalid or expired mindlog id session — please sign in again');
   // Make mindlog id the single source of truth: store the email there too. The
   // IdP won't overwrite an existing one, and a failure must not block sign-in.
-  if (pending.mlAccessToken) {
+  if (pending.accessToken) {
     try {
-      await setMindlogIdRecoveryEmail(pending.mlAccessToken, email);
+      await setMindlogIdRecoveryEmail(pending.accessToken, email);
     } catch {
       /* best-effort — the todo account still gets the email below */
     }
@@ -181,7 +209,28 @@ export async function completeMindlogIdSignup(pendingToken: string, email: strin
     displayName: pending.name,
   });
   await projectRepo.ensureInbox(user.id);
+  await storeMindlogIdConnection(user.id, pending);
   return issueTokens(user);
+}
+
+// --- mindlog id agenda connection (status / disconnect) ---
+
+export interface MindlogIdConnectionStatus {
+  connected: boolean;
+  /** True when the user granted the optional agenda read scope. */
+  agendaGranted: boolean;
+}
+
+export async function mindlogIdConnectionStatus(userId: string): Promise<MindlogIdConnectionStatus> {
+  const conn = await userRepo.getMindlogIdConnection(userId);
+  return {
+    connected: Boolean(conn),
+    agendaGranted: Boolean(conn && hasAgendaScope(conn.scope)),
+  };
+}
+
+export function disconnectMindlogId(userId: string): Promise<boolean> {
+  return userRepo.deleteMindlogIdConnection(userId);
 }
 
 // --- account & API keys ---

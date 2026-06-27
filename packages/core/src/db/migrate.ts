@@ -354,6 +354,56 @@ function migrations(): Migration[] {
       id: '019_mindlog_id',
       sql: /* sql */ `ALTER TABLE users ADD COLUMN IF NOT EXISTS mindlog_id_sub TEXT UNIQUE;`,
     },
+    {
+      // Stores the OAuth tokens + granted scope from "Sign in with mindlog id",
+      // so the app can read the user's mindlog.id agenda (scope mindlog:agenda)
+      // and refresh access as needed. One row per user (latest connection wins).
+      id: '020_mindlog_id_connection',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS mindlog_id_connections (
+          user_id       UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          access_token  TEXT NOT NULL,
+          refresh_token TEXT NOT NULL,
+          expires_at    TIMESTAMPTZ NOT NULL,
+          scope         TEXT NOT NULL DEFAULT '',
+          created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+          updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+      `,
+    },
+    {
+      // OAuth 2.1 authorization server (for remote MCP clients like Claude).
+      // `oauth_clients` holds dynamically-registered clients (RFC 7591); public
+      // clients use PKCE and have no secret. `oauth_auth_codes` are single-use
+      // authorization codes bound to a user + PKCE challenge (short-lived).
+      id: '021_oauth_server',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS oauth_clients (
+          client_id                  TEXT PRIMARY KEY,
+          client_secret_hash         TEXT,
+          client_name                TEXT,
+          redirect_uris              TEXT[] NOT NULL,
+          grant_types                TEXT[] NOT NULL DEFAULT ARRAY['authorization_code','refresh_token'],
+          token_endpoint_auth_method TEXT   NOT NULL DEFAULT 'none',
+          created_at                 TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE TABLE IF NOT EXISTS oauth_auth_codes (
+          code_hash             TEXT PRIMARY KEY,
+          client_id             TEXT NOT NULL REFERENCES oauth_clients(client_id) ON DELETE CASCADE,
+          user_id               UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          redirect_uri          TEXT NOT NULL,
+          code_challenge        TEXT NOT NULL,
+          code_challenge_method TEXT NOT NULL DEFAULT 'S256',
+          scope                 TEXT NOT NULL DEFAULT '',
+          resource              TEXT,
+          expires_at            TIMESTAMPTZ NOT NULL,
+          consumed_at           TIMESTAMPTZ,
+          created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS oauth_auth_codes_user_idx ON oauth_auth_codes (user_id);
+      `,
+    },
   ];
 }
 

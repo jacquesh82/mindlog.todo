@@ -10,15 +10,42 @@ interface OidcDiscovery {
   userinfo_endpoint: string;
 }
 
-export interface MindlogIdProfile {
+/** OAuth tokens + granted scope returned by the mindlog id token endpoint. */
+export interface MindlogIdTokens {
+  accessToken: string;
+  refreshToken: string;
+  /** Seconds until the access token expires. */
+  expiresIn: number;
+  /** Space-separated scopes actually granted (selective consent). */
+  scope: string;
+}
+
+export interface MindlogIdProfile extends MindlogIdTokens {
   sub: string;
   // mindlog accounts are handle-based; the email (recovery email) is optional on
   // the IdP, so it may be absent. The caller then asks the user for one.
   email: string | null;
   name?: string | null;
-  // The provider access token, kept so we can write the user-supplied email back
-  // to mindlog id (as their recovery email) when the profile had none.
-  accessToken: string;
+}
+
+/** Optional scope that grants read access to the user's mindlog id agenda. */
+export const MINDLOG_ID_AGENDA_SCOPE = 'mindlog:agenda';
+
+/** True when the granted scope string includes the agenda read permission. */
+export function hasAgendaScope(scope: string): boolean {
+  return scope.split(/\s+/).includes(MINDLOG_ID_AGENDA_SCOPE);
+}
+
+/** A single agenda event as returned by mindlog id's GET /oauth/agenda. */
+export interface MindlogIdEvent {
+  id: number;
+  title: string;
+  starts_at: string;
+  ends_at: string | null;
+  location: string;
+  link: string;
+  is_public: boolean;
+  kind: 'event' | 'live';
 }
 
 let discoveryCache: OidcDiscovery | null = null;
@@ -47,7 +74,9 @@ export async function getMindlogIdAuthUrl(state: string): Promise<string> {
     client_id: config.mindlogId.clientId,
     redirect_uri: config.mindlogId.redirectUri,
     response_type: 'code',
-    scope: 'openid email profile',
+    // openid/email/profile : login OIDC ; mindlog:agenda/relations : accès optionnel
+    // proposé (et décochable) sur l'écran de consentement sélectif de mindlog.id.
+    scope: 'openid email profile mindlog:agenda mindlog:relations',
     state,
   });
   return `${authorization_endpoint}?${params.toString()}`;
@@ -68,7 +97,12 @@ export async function exchangeMindlogIdCode(code: string): Promise<MindlogIdProf
     }).toString(),
   });
   if (!tokenRes.ok) throw new Error(`mindlog id token exchange failed (${tokenRes.status})`);
-  const tokens = (await tokenRes.json()) as { access_token?: string };
+  const tokens = (await tokenRes.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    scope?: string;
+  };
   if (!tokens.access_token) throw new Error('mindlog id token response missing access_token');
 
   const userRes = await fetch(userinfo_endpoint, {
@@ -84,8 +118,62 @@ export async function exchangeMindlogIdCode(code: string): Promise<MindlogIdProf
     email: profile.email ?? null,
     name: profile.name ?? null,
     accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token ?? '',
+    expiresIn: tokens.expires_in ?? 3600,
+    scope: tokens.scope ?? '',
   };
 }
+
+/** Exchange a refresh token for a fresh access/refresh token pair (rotation). */
+export async function refreshMindlogIdToken(refreshToken: string): Promise<MindlogIdTokens> {
+  const { token_endpoint } = await discover();
+  const res = await fetch(token_endpoint, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: config.mindlogId.clientId,
+      client_secret: config.mindlogId.clientSecret,
+    }).toString(),
+  });
+  if (!res.ok) throw new Error(`mindlog id token refresh failed (${res.status})`);
+  const t = (await res.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    scope?: string;
+  };
+  if (!t.access_token) throw new Error('mindlog id refresh response missing access_token');
+  return {
+    accessToken: t.access_token,
+    // The IdP rotates refresh tokens; keep the old one if it ever omits a new one.
+    refreshToken: t.refresh_token ?? refreshToken,
+    expiresIn: t.expires_in ?? 3600,
+    scope: t.scope ?? '',
+  };
+}
+
+/**
+ * Fetch the user's mindlog id agenda. Requires an access token whose grant
+ * included {@link MINDLOG_ID_AGENDA_SCOPE}; a 403 means the right was not given.
+ */
+export async function fetchMindlogIdAgenda(accessToken: string): Promise<MindlogIdEvent[]> {
+  const base = config.mindlogId.issuer.replace(/\/$/, '');
+  const res = await fetch(`${base}/oauth/agenda`, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status === 401) throw new MindlogIdAuthError('access token rejected');
+  if (res.status === 403) throw new MindlogIdScopeError('agenda scope not granted');
+  if (!res.ok) throw new Error(`mindlog id agenda failed (${res.status})`);
+  const body = (await res.json()) as { events?: MindlogIdEvent[] };
+  return body.events ?? [];
+}
+
+/** Access token is invalid/expired — the caller should try a refresh. */
+export class MindlogIdAuthError extends Error {}
+/** The agenda scope was not granted — the caller should surface "right missing". */
+export class MindlogIdScopeError extends Error {}
 
 /**
  * Store the email the user typed as their mindlog id recovery email, so the

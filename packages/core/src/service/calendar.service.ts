@@ -1,4 +1,12 @@
 import {
+  fetchMindlogIdAgenda,
+  hasAgendaScope,
+  MindlogIdAuthError,
+  MindlogIdScopeError,
+  refreshMindlogIdToken,
+  type MindlogIdEvent,
+} from '../auth/mindlog-id.js';
+import {
   parseIcs,
   type CalendarEvent,
   type CalendarSource,
@@ -7,6 +15,7 @@ import {
 } from '../domain/calendar.js';
 import { NotFound } from '../errors.js';
 import * as repo from '../repository/calendar-source.repo.js';
+import * as userRepo from '../repository/user.repo.js';
 
 export function createSource(userId: string, input: CalendarSourceCreateInput): Promise<CalendarSource> {
   return repo.insert(userId, input.name, input.url, input.color ?? null);
@@ -66,22 +75,101 @@ export async function getEvents(userId: string, from?: Date, to?: Date): Promise
   const sources = await repo.list(userId);
   const nowMs = Date.now();
   const out: ExternalEvent[] = [];
-  await Promise.all(
-    sources.map(async (s) => {
+  const inRange = (iso: string) => {
+    const start = new Date(iso);
+    if (from && start < from) return false;
+    if (to && start > to) return false;
+    return true;
+  };
+
+  await Promise.all([
+    ...sources.map(async (s) => {
       try {
         const events = await fetchIcs(s.url, nowMs);
         await repo.touchSynced(s.id);
         for (const e of events) {
-          const start = new Date(e.start);
-          if (from && start < from) continue;
-          if (to && start > to) continue;
+          if (!inRange(e.start)) continue;
           out.push({ ...e, sourceId: s.id, sourceName: s.name, color: s.color });
         }
       } catch (err) {
         console.error(`[calendar] feed "${s.name}" failed:`, err instanceof Error ? err.message : err);
       }
     }),
-  );
+    (async () => {
+      try {
+        for (const e of await fetchMindlogIdEvents(userId)) {
+          if (!inRange(e.start)) continue;
+          out.push(e);
+        }
+      } catch (err) {
+        console.error('[calendar] mindlog id agenda failed:', err instanceof Error ? err.message : err);
+      }
+    })(),
+  ]);
   out.sort((a, b) => a.start.localeCompare(b.start));
   return out;
+}
+
+// --- mindlog id agenda (events from the central identity provider) ---
+
+/** Source id/colour for events pulled from the user's mindlog id agenda. */
+export const MINDLOG_ID_SOURCE_ID = 'mindlog-id';
+const MINDLOG_ID_SOURCE_NAME = 'mindlog id';
+const MINDLOG_ID_COLOR = '#8b5cf6'; // violet — distinct from iCal feed colours
+
+function mapMindlogIdEvent(e: MindlogIdEvent): ExternalEvent {
+  return {
+    uid: `${MINDLOG_ID_SOURCE_ID}-${e.id}`,
+    summary: e.title,
+    start: new Date(e.starts_at).toISOString(),
+    end: e.ends_at ? new Date(e.ends_at).toISOString() : null,
+    allDay: false,
+    sourceId: MINDLOG_ID_SOURCE_ID,
+    sourceName: MINDLOG_ID_SOURCE_NAME,
+    color: MINDLOG_ID_COLOR,
+  };
+}
+
+/**
+ * Read the user's mindlog id agenda, refreshing the access token when expired.
+ * Returns [] when there's no connection or the agenda scope wasn't granted.
+ */
+export async function fetchMindlogIdEvents(userId: string): Promise<ExternalEvent[]> {
+  const conn = await userRepo.getMindlogIdConnection(userId);
+  if (!conn || !hasAgendaScope(conn.scope)) return [];
+
+  let accessToken = conn.accessToken;
+  // Proactively refresh if the token is expired (or within 30s of it).
+  if (conn.expiresAt.getTime() - Date.now() < 30_000) {
+    accessToken = await refreshConnection(userId, conn.refreshToken, conn.scope);
+  }
+
+  try {
+    return (await fetchMindlogIdAgenda(accessToken)).map(mapMindlogIdEvent);
+  } catch (err) {
+    if (err instanceof MindlogIdScopeError) return [];
+    if (err instanceof MindlogIdAuthError) {
+      // Stale access token despite our expiry check — refresh once and retry.
+      const fresh = await refreshConnection(userId, conn.refreshToken, conn.scope);
+      return (await fetchMindlogIdAgenda(fresh)).map(mapMindlogIdEvent);
+    }
+    throw err;
+  }
+}
+
+/** Rotate the mindlog id tokens, persist them, and return the new access token. */
+async function refreshConnection(
+  userId: string,
+  refreshToken: string,
+  prevScope: string,
+): Promise<string> {
+  const t = await refreshMindlogIdToken(refreshToken);
+  await userRepo.upsertMindlogIdConnection(userId, {
+    accessToken: t.accessToken,
+    refreshToken: t.refreshToken,
+    expiresAt: new Date(Date.now() + t.expiresIn * 1000),
+    // The refresh response may omit scope; keep the originally granted one then.
+    scope: t.scope || prevScope,
+  });
+  return t.accessToken;
 }

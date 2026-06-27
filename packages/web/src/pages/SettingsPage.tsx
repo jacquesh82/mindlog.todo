@@ -6,10 +6,81 @@ import { useToast } from '../toast';
 import { applyTheme, getInitialTheme, type Theme } from '../theme';
 import type { AiLog, AiUsage, ApiKey, CalendarSource, User } from '../types';
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+/** Inline stroke icon (Lucide geometry) — replaces emoji so icons theme + scale cleanly. */
+function Svg({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className ?? 'h-[18px] w-[18px]'}
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+type IconProps = { className?: string };
+const UserIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </Svg>
+);
+const PaletteIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+  </Svg>
+);
+const SparklesIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+    <path d="M20 3v4M22 5h-4M4 17v2M5 18H3" />
+  </Svg>
+);
+const PlugIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 22v-5M9 8V2M15 8V2" />
+    <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
+  </Svg>
+);
+const DownloadIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" x2="12" y1="15" y2="3" />
+  </Svg>
+);
+const CalendarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect width="18" height="18" x="3" y="4" rx="2" />
+    <path d="M3 10h18M8 2v4M16 2v4" />
+  </Svg>
+);
+
+function Card({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <section className="mb-6 rounded-xl border border-line bg-surface p-5">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">{title}</h2>
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted">
+        {icon}
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -86,7 +157,7 @@ function McpConnectorCard() {
   }
 
   return (
-    <Card title={`🔌 ${t('settings.mcp')}`}>
+    <Card title={t('settings.mcp')} icon={<PlugIcon className="h-4 w-4" />}>
       <p className="mb-4 text-sm text-muted">{t('settings.mcpHint')}</p>
 
       <div className="space-y-3">
@@ -165,7 +236,7 @@ function AiActivityCard() {
   }, []);
 
   return (
-    <Card title="🤖 AI activity & token usage">
+    <Card title="AI activity & token usage" icon={<SparklesIcon className="h-4 w-4" />}>
       {usage && (
         <div className="mb-4 grid grid-cols-4 gap-3 text-center">
           <Stat label="Calls" value={usage.calls} />
@@ -233,7 +304,7 @@ function AccountCard() {
   }, []);
   if (!me) return null;
   return (
-    <Card title={`👤 ${t('settings.account')}`}>
+    <Card title={t('settings.account')} icon={<UserIcon className="h-4 w-4" />}>
       <dl className="space-y-1 text-sm">
         <Row label={t('settings.name')} value={me.displayName ?? '—'} />
         <Row label={t('settings.email')} value={me.email} />
@@ -263,7 +334,7 @@ function AppearanceCard() {
   }
 
   return (
-    <Card title={`🎨 ${t('settings.appearance')}`}>
+    <Card title={t('settings.appearance')} icon={<PaletteIcon className="h-4 w-4" />}>
       <div className="space-y-4 text-sm">
         <div className="flex items-center justify-between">
           <span className="text-muted">{t('settings.theme')}</span>
@@ -323,7 +394,7 @@ function CalendarSourcesCard() {
   }
 
   return (
-    <Card title={`📆 ${t('cal.sources')}`}>
+    <Card title={t('cal.sources')} icon={<CalendarIcon className="h-4 w-4" />}>
       <p className="mb-3 text-sm text-muted">{t('cal.sourcesHint')}</p>
       <div className="flex flex-wrap gap-2">
         <input
@@ -360,17 +431,146 @@ function CalendarSourcesCard() {
   );
 }
 
+function MindlogIdCalendarCard() {
+  const { t } = useI18n();
+  const dialog = useDialog();
+  const [status, setStatus] = useState<{ connected: boolean; agendaGranted: boolean } | null>(null);
+
+  const reload = () => void api.mindlogIdCalendarStatus().then(setStatus);
+  useEffect(reload, []);
+
+  async function disconnect() {
+    if (
+      await dialog.confirm({
+        title: t('settings.mlcal.disconnectConfirm'),
+        danger: true,
+        confirmLabel: t('settings.mlcal.disconnect'),
+      })
+    ) {
+      await api.disconnectMindlogIdCalendar();
+      reload();
+    }
+  }
+
+  const connectedAndGranted = status?.connected && status.agendaGranted;
+  const connectedNoScope = status?.connected && !status.agendaGranted;
+
+  return (
+    <Card title={t('settings.mlcal.title')} icon={<CalendarIcon className="h-4 w-4" />}>
+      <p className="mb-3 text-sm text-muted">{t('settings.mlcal.hint')}</p>
+
+      {connectedAndGranted && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-2 text-sm text-ink">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#8b5cf6' }} />
+            {t('settings.mlcal.connectedGranted')}
+          </span>
+          <button
+            type="button"
+            onClick={disconnect}
+            className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:border-[var(--color-p1)] hover:text-[var(--color-p1)]"
+          >
+            {t('settings.mlcal.disconnect')}
+          </button>
+        </div>
+      )}
+
+      {connectedNoScope && (
+        <div className="space-y-3">
+          <p className="text-sm text-[var(--color-p2)]">{t('settings.mlcal.connectedNoScope')}</p>
+          <div className="flex gap-2">
+            <a
+              href={api.mindlogIdUrl()}
+              className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover"
+            >
+              {t('settings.mlcal.reconnect')}
+            </a>
+            <button
+              type="button"
+              onClick={disconnect}
+              className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink hover:border-[var(--color-p1)] hover:text-[var(--color-p1)]"
+            >
+              {t('settings.mlcal.disconnect')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {status && !status.connected && (
+        <div className="space-y-3">
+          <p className="text-sm text-muted">{t('settings.mlcal.notConnected')}</p>
+          <a
+            href={api.mindlogIdUrl()}
+            className="inline-block rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover"
+          >
+            {t('settings.mlcal.connect')}
+          </a>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+type CategoryId = 'account' | 'appearance' | 'ai' | 'connections' | 'data';
+
+const CATEGORIES: { id: CategoryId; labelKey: string; icon: React.ReactNode }[] = [
+  { id: 'account', labelKey: 'settings.cat.account', icon: <UserIcon /> },
+  { id: 'appearance', labelKey: 'settings.cat.appearance', icon: <PaletteIcon /> },
+  { id: 'ai', labelKey: 'settings.cat.ai', icon: <SparklesIcon /> },
+  { id: 'connections', labelKey: 'settings.cat.connections', icon: <PlugIcon /> },
+  { id: 'data', labelKey: 'settings.cat.data', icon: <DownloadIcon /> },
+];
+
 export function SettingsPage() {
   const { t } = useI18n();
+  const [active, setActive] = useState<CategoryId>('account');
+
   return (
-    <div className="mx-auto w-full max-w-3xl px-8 py-8">
-      <h1 className="mb-4 text-xl font-bold text-ink">{t('nav.settings')}</h1>
-      <AccountCard />
-      <AppearanceCard />
-      <CalendarSourcesCard />
-      <AiActivityCard />
-      <McpConnectorCard />
-      <DataExportCard />
+    <div className="mx-auto w-full max-w-4xl px-6 py-8">
+      <h1 className="mb-6 text-xl font-bold text-ink">{t('nav.settings')}</h1>
+
+      <div className="md:grid md:grid-cols-[200px_1fr] md:gap-8">
+        {/* Category navigation: vertical sidebar on desktop, scrollable pills on mobile */}
+        <nav aria-label={t('nav.settings')} className="mb-6 md:mb-0">
+          <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:sticky md:top-8 md:flex-col md:overflow-visible md:px-0 md:pb-0">
+            {CATEGORIES.map((c) => {
+              const selected = active === c.id;
+              return (
+                <li key={c.id} className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActive(c.id)}
+                    aria-current={selected ? 'page' : undefined}
+                    className={`flex w-full items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      selected
+                        ? 'bg-brand-soft text-brand'
+                        : 'text-muted hover:bg-sidebar hover:text-ink'
+                    }`}
+                  >
+                    {c.icon}
+                    {t(c.labelKey)}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        {/* Active category panel */}
+        <div className="min-w-0">
+          {active === 'account' && <AccountCard />}
+          {active === 'appearance' && <AppearanceCard />}
+          {active === 'ai' && <AiActivityCard />}
+          {active === 'connections' && (
+            <>
+              <MindlogIdCalendarCard />
+              <CalendarSourcesCard />
+              <McpConnectorCard />
+            </>
+          )}
+          {active === 'data' && <DataExportCard />}
+        </div>
+      </div>
     </div>
   );
 }
@@ -402,7 +602,7 @@ function DataExportCard() {
   }
 
   return (
-    <Card title={`⬇️ ${t('settings.export')}`}>
+    <Card title={t('settings.export')} icon={<DownloadIcon className="h-4 w-4" />}>
       <p className="mb-3 text-sm text-muted">{t('settings.exportHint')}</p>
       <button
         onClick={download}

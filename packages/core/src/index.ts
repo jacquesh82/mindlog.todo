@@ -48,5 +48,7 @@ export * as attachmentService from './service/attachment.service.js';
 export * as calendarService from './service/calendar.service.js';
 export * as noteService from './service/note.service.js';
 export * as authService from './service/auth.service.js';
+export * as oauthService from './service/oauth.service.js';
+export { OAuthError } from './service/oauth.service.js';
 export * as exportService from './service/export.service.js';
 export { askTasks } from './rag/ask.js';

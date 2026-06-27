@@ -15,9 +15,24 @@ export default defineConfig({
   base: process.env.VITE_BASE || '/',
   plugins: [react(), tailwindcss()],
   server: {
+    host: true,
     port: 5173,
+    strictPort: true,
+    // Accept the Host header forwarded by the dev nginx (todo.mindlog.localhost).
+    allowedHosts: true,
     proxy: {
-      '/api': 'http://localhost:8080',
+      // Used only when running Vite directly on the host; in Docker the nginx
+      // sidecar already proxies /api, so this is a harmless fallback.
+      '/api': process.env.VITE_DEV_API || 'http://localhost:8080',
+    },
+    // The dev server runs behind nginx + the TLS gateway, so the browser reaches
+    // it at wss://todo.mindlog.localhost:443. A custom HMR path keeps the
+    // WebSocket handshake clear of the gateway's exact `location = /` redirect.
+    hmr: {
+      host: process.env.VITE_HMR_HOST || 'todo.mindlog.localhost',
+      protocol: process.env.VITE_HMR_PROTOCOL || 'wss',
+      clientPort: Number(process.env.VITE_HMR_PORT) || 443,
+      path: '/vite-hmr',
     },
   },
 });

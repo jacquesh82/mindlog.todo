@@ -56,3 +56,22 @@ describe('calendar sources', () => {
     expect(res.body).toEqual([]);
   });
 });
+
+describe('mindlog id calendar connection', () => {
+  it('reports not-connected for a password account and disconnect is idempotent', async () => {
+    const token = await registerUser('mlcal@ex.com');
+
+    const status = await request(app).get('/api/v1/calendar/mindlog-id').set(auth(token));
+    expect(status.status).toBe(200);
+    expect(status.body).toEqual({ connected: false, agendaGranted: false });
+
+    // No connection yet → disconnect is a no-op but still succeeds.
+    const del = await request(app).delete('/api/v1/calendar/mindlog-id').set(auth(token));
+    expect(del.status).toBe(204);
+  });
+
+  it('requires authentication', async () => {
+    const res = await request(app).get('/api/v1/calendar/mindlog-id');
+    expect(res.status).toBe(401);
+  });
+});

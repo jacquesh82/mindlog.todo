@@ -183,6 +183,16 @@ export const api = {
   mcpUrl(): string {
     return `${API || window.location.origin}/mcp`;
   },
+  /** Approve or deny an OAuth authorization request; returns the redirect URL. */
+  authorizeConsent(
+    params: Record<string, string>,
+    approve: boolean,
+  ): Promise<{ redirectTo: string }> {
+    return request<{ redirectTo: string }>('/api/v1/oauth/authorize', {
+      method: 'POST',
+      body: JSON.stringify({ ...params, approve }),
+    });
+  },
   me(): Promise<User> {
     return request<User>('/api/v1/me');
   },
@@ -238,6 +248,13 @@ export const api = {
   },
   calendarEvents(): Promise<ExternalEvent[]> {
     return request<ExternalEvent[]>('/api/v1/calendar/events');
+  },
+  // mindlog id agenda connection (read-only calendar from the central identity)
+  mindlogIdCalendarStatus(): Promise<{ connected: boolean; agendaGranted: boolean }> {
+    return request<{ connected: boolean; agendaGranted: boolean }>('/api/v1/calendar/mindlog-id');
+  },
+  disconnectMindlogIdCalendar(): Promise<void> {
+    return request<void>('/api/v1/calendar/mindlog-id', { method: 'DELETE' });
   },
 
   // notes (OneNote-lite)

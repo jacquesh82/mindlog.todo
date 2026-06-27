@@ -1,4 +1,5 @@
 import {
+  authService,
   calendarService,
   calendarSourceCreateSchema,
   calendarSourceUpdateSchema,
@@ -8,6 +9,17 @@ import { requireAuth, userId } from '../middleware/auth.js';
 
 export const calendarRouter: Router = Router();
 calendarRouter.use(requireAuth);
+
+// mindlog id agenda connection: report whether it's connected + the agenda right
+// was granted, and allow the user to disconnect it.
+calendarRouter.get('/mindlog-id', async (req, res) => {
+  res.json(await authService.mindlogIdConnectionStatus(userId(req)));
+});
+
+calendarRouter.delete('/mindlog-id', async (req, res) => {
+  await authService.disconnectMindlogId(userId(req));
+  res.status(204).end();
+});
 
 calendarRouter.get('/sources', async (req, res) => {
   res.json(await calendarService.listSources(userId(req)));

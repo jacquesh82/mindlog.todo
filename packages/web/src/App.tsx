@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api/client';
 import { useAuth } from './auth/AuthContext';
+import { AuthorizePage } from './auth/AuthorizePage';
 import { LoginPage } from './auth/LoginPage';
 import { ResetPasswordPage } from './auth/ResetPasswordPage';
 import { MainView } from './components/MainView';
@@ -60,6 +61,10 @@ export function App() {
         </div>
       </div>
     );
+
+  // OAuth consent deep link (`/authorize?…`) for remote MCP clients (Claude).
+  // Handles its own loading/login state, so branch before the auth gate.
+  if (window.location.pathname.endsWith('/authorize')) return <AuthorizePage />;
 
   if (loading) return <div className="flex h-screen items-center justify-center text-muted">{t('common.loading')}</div>;
   if (!user)

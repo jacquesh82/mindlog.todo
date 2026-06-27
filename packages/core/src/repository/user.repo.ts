@@ -104,6 +104,59 @@ export async function upsertMindlogIdUser(input: {
   return mapUser(rows[0]!);
 }
 
+// --- mindlog id connection (OAuth tokens for agenda access) ---
+
+export interface MindlogIdConnection {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date;
+  scope: string;
+}
+
+interface MindlogIdConnectionRow {
+  access_token: string;
+  refresh_token: string;
+  expires_at: Date;
+  scope: string;
+}
+
+/** Insert or replace the user's mindlog id connection (latest sign-in wins). */
+export async function upsertMindlogIdConnection(
+  userId: string,
+  c: MindlogIdConnection,
+): Promise<void> {
+  await getPool().query(
+    `INSERT INTO mindlog_id_connections (user_id, access_token, refresh_token, expires_at, scope)
+     VALUES ($1,$2,$3,$4,$5)
+     ON CONFLICT (user_id) DO UPDATE SET
+       access_token = EXCLUDED.access_token,
+       refresh_token = EXCLUDED.refresh_token,
+       expires_at = EXCLUDED.expires_at,
+       scope = EXCLUDED.scope,
+       updated_at = now()`,
+    [userId, c.accessToken, c.refreshToken, c.expiresAt, c.scope],
+  );
+}
+
+export async function getMindlogIdConnection(userId: string): Promise<MindlogIdConnection | null> {
+  const { rows } = await getPool().query<MindlogIdConnectionRow>(
+    'SELECT access_token, refresh_token, expires_at, scope FROM mindlog_id_connections WHERE user_id = $1',
+    [userId],
+  );
+  const r = rows[0];
+  return r
+    ? { accessToken: r.access_token, refreshToken: r.refresh_token, expiresAt: r.expires_at, scope: r.scope }
+    : null;
+}
+
+export async function deleteMindlogIdConnection(userId: string): Promise<boolean> {
+  const { rowCount } = await getPool().query(
+    'DELETE FROM mindlog_id_connections WHERE user_id = $1',
+    [userId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 // --- refresh tokens ---
 
 export async function insertRefreshToken(input: {

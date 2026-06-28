@@ -1,4 +1,4 @@
-import { Tour } from 'shepherd.js';
+import Shepherd from 'shepherd.js';
 import 'shepherd.js/dist/css/shepherd.css';
 
 // First-login guided tour (Shepherd.js). Anchored to [data-tour="…"] elements
@@ -32,7 +32,7 @@ export function maybeStartTour(t: Translate): void {
 
 /** Start (or replay) the guided tour. */
 export function startTour(t: Translate): void {
-  const tour = new Tour({
+  const tour = new Shepherd.Tour({
     useModalOverlay: true,
     defaultStepOptions: {
       scrollTo: true,

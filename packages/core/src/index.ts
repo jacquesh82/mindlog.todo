@@ -74,3 +74,6 @@ export * as oauthService from './service/oauth.service.js';
 export { OAuthError } from './service/oauth.service.js';
 export * as exportService from './service/export.service.js';
 export { askTasks } from './rag/ask.js';
+
+// Change bus — REST & MCP write paths emit here; the SSE endpoint subscribes.
+export { emitChange, subscribeChanges, type ChangeEvent, type ChangeEntity } from './service/changes.js';

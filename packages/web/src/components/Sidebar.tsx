@@ -50,11 +50,22 @@ function LogoutIcon() {
   );
 }
 
+/** Counts of unfinished (non-done) tasks, keyed for each sidebar entry. */
+export interface SidebarCounts {
+  today: number;
+  upcoming: number;
+  inbox: number;
+  byProject: Record<string, number>;
+  byLabel: Record<string, number>;
+  byFilter: Record<string, number>;
+}
+
 interface Props {
   projects: Project[];
   labels: Label[];
   filters: Filter[];
   karma: Karma | null;
+  counts: SidebarCounts | null;
   view: View;
   onSelect: (view: View) => void;
   onReload: () => void;
@@ -98,7 +109,7 @@ function Item({
   );
 }
 
-export function Sidebar({ projects, labels, filters, karma, view, onSelect, onReload }: Props) {
+export function Sidebar({ projects, labels, filters, karma, counts, view, onSelect, onReload }: Props) {
   const { t, lang, setLang } = useI18n();
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -174,20 +185,20 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
         <Item tour="dashboard" active={is('dashboard')} icon="📊" label={t('nav.dashboard')} onClick={() => onSelect({ kind: 'dashboard' })} />
 
         <Section title={t('nav.tasks')}>
-          <Item active={is('today')} icon="📆" label={t('nav.today')} onClick={() => onSelect({ kind: 'today' })} />
-          <Item active={is('upcoming')} icon="🗓" label={t('nav.upcoming')} onClick={() => onSelect({ kind: 'upcoming' })} />
+          <Item active={is('today')} icon="📆" label={t('nav.today')} count={counts?.today} onClick={() => onSelect({ kind: 'today' })} />
+          <Item active={is('upcoming')} icon="🗓" label={t('nav.upcoming')} count={counts?.upcoming} onClick={() => onSelect({ kind: 'upcoming' })} />
           {inbox && (
-            <Item active={is('inbox')} icon="📥" label={t('nav.inbox')} onClick={() => onSelect({ kind: 'inbox', id: inbox.id })} />
+            <Item active={is('inbox')} icon="📥" label={t('nav.inbox')} count={counts?.inbox} onClick={() => onSelect({ kind: 'inbox', id: inbox.id })} />
           )}
         </Section>
 
         {hasFavorites && (
           <Section title={t('nav.favorites')}>
             {favProjects.map((p) => (
-              <Item key={p.id} active={is('project', p.id)} glyph={<HashIcon color={p.color} />} label={p.name} onClick={() => onSelect({ kind: 'project', id: p.id })} />
+              <Item key={p.id} active={is('project', p.id)} glyph={<HashIcon color={p.color} />} label={p.name} count={counts?.byProject[p.id]} onClick={() => onSelect({ kind: 'project', id: p.id })} />
             ))}
             {favLabels.map((l) => (
-              <Item key={l.id} active={is('label', l.id)} glyph={<TagIcon color={l.color} />} label={l.name} onClick={() => onSelect({ kind: 'label', id: l.id })} />
+              <Item key={l.id} active={is('label', l.id)} glyph={<TagIcon color={l.color} />} label={l.name} count={counts?.byLabel[l.id]} onClick={() => onSelect({ kind: 'label', id: l.id })} />
             ))}
           </Section>
         )}
@@ -206,6 +217,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
               active={is('filter', f.id)}
               glyph={<FunnelIcon color={f.color} />}
               label={f.name}
+              count={counts?.byFilter[f.id]}
               onOpen={() => onSelect({ kind: 'filter', id: f.id })}
               onEdit={() => setFilterModal(f)}
             />
@@ -231,6 +243,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
               active={is('label', l.id)}
               glyph={<TagIcon color={l.color} />}
               label={l.name}
+              count={counts?.byLabel[l.id]}
               onOpen={() => onSelect({ kind: 'label', id: l.id })}
               onEdit={() => setLabelModal(l)}
             />
@@ -266,6 +279,7 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
               project={p}
               depth={depth}
               active={is('project', p.id)}
+              count={counts?.byProject[p.id]}
               onOpen={() => onSelect({ kind: 'project', id: p.id })}
               onEdit={() => setModal(p)}
               onReparent={reparent}
@@ -346,12 +360,14 @@ function EditableRow({
   active,
   glyph,
   label,
+  count,
   onOpen,
   onEdit,
 }: {
   active: boolean;
   glyph: ReactNode;
   label: string;
+  count?: number;
   onOpen: () => void;
   onEdit: () => void;
 }) {
@@ -365,6 +381,9 @@ function EditableRow({
       >
         <span className="flex w-4 shrink-0 justify-center">{glyph}</span>
         <span className="flex-1 truncate">{label}</span>
+        {count !== undefined && count > 0 && (
+          <span className="text-xs text-muted group-hover:invisible">{count}</span>
+        )}
       </button>
       <button
         onClick={onEdit}
@@ -382,6 +401,7 @@ function ProjectRow({
   project,
   active,
   depth = 0,
+  count,
   onOpen,
   onEdit,
   onReparent,
@@ -389,6 +409,7 @@ function ProjectRow({
   project: Project;
   active: boolean;
   depth?: number;
+  count?: number;
   onOpen: () => void;
   onEdit: () => void;
   onReparent: (childId: string, parentId: string) => void;
@@ -421,6 +442,9 @@ function ProjectRow({
         </span>
         <span className="flex-1 truncate">{project.name}</span>
         {project.isFavorite && <span className="text-xs">★</span>}
+        {count !== undefined && count > 0 && (
+          <span className="text-xs text-muted group-hover:invisible">{count}</span>
+        )}
       </button>
       <button
         onClick={onEdit}

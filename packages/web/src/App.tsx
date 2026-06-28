@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './api/client';
+import { connectServerEvents, useServerEvents } from './api/events';
 import { useAuth } from './auth/AuthContext';
 import { AuthorizePage } from './auth/AuthorizePage';
 import { LoginPage } from './auth/LoginPage';
 import { ResetPasswordPage } from './auth/ResetPasswordPage';
 import { MainView } from './components/MainView';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, type SidebarCounts } from './components/Sidebar';
+import { startOfToday, startOfTomorrow } from './format';
 import { useI18n } from './i18n';
 import { DashboardView } from './pages/DashboardView';
 import { NotesView } from './pages/NotesView';
 import { ProjectView } from './pages/ProjectView';
 import { SearchAskView } from './pages/SearchAskView';
+import { SelectionProvider } from './selection/Selection';
 import { SettingsPage } from './pages/SettingsPage';
 import { maybeStartTour } from './tour';
 import type { Filter, Karma, Label, Project } from './types';
@@ -24,6 +27,7 @@ export function App() {
   const [labels, setLabels] = useState<Label[]>([]);
   const [filters, setFilters] = useState<Filter[]>([]);
   const [karma, setKarma] = useState<Karma | null>(null);
+  const [counts, setCounts] = useState<SidebarCounts | null>(null);
 
   const reloadSidebar = useCallback(() => {
     if (!user) return;
@@ -32,17 +36,53 @@ export function App() {
       api.listLabels(),
       api.listFilters(),
       api.getKarma(),
-    ]).then(([p, l, f, k]) => {
+      api.listTasks({ completed: 'false' }),
+    ]).then(async ([p, l, f, k, open]) => {
       setProjects(p);
       setLabels(l);
       setFilters(f);
       setKarma(k);
+
+      // Unfinished-task counts for the sidebar. Smart-view bounds mirror MainView
+      // (today = due before tomorrow incl. overdue; upcoming = due from today on).
+      const tomorrow = startOfTomorrow();
+      const today = startOfToday();
+      const inboxId = p.find((proj) => proj.isInbox)?.id;
+      const byProject: Record<string, number> = {};
+      const byLabel: Record<string, number> = {};
+      for (const task of open) {
+        if (task.projectId) byProject[task.projectId] = (byProject[task.projectId] ?? 0) + 1;
+        for (const labelId of task.labelIds ?? []) byLabel[labelId] = (byLabel[labelId] ?? 0) + 1;
+      }
+      // Per-filter counts: run each saved filter and count non-done results.
+      const filterResults = await Promise.all(f.map((flt) => api.runFilter(flt.id).catch(() => [])));
+      const byFilter: Record<string, number> = {};
+      f.forEach((flt, i) => {
+        byFilter[flt.id] = (filterResults[i] ?? []).filter((task) => task.status !== 'done').length;
+      });
+      setCounts({
+        today: open.filter((task) => task.dueDate && new Date(task.dueDate) < tomorrow).length,
+        upcoming: open.filter((task) => task.dueDate && new Date(task.dueDate) >= today).length,
+        inbox: inboxId ? open.filter((task) => task.projectId === inboxId).length : 0,
+        byProject,
+        byLabel,
+        byFilter,
+      });
     });
   }, [user]);
 
   useEffect(() => {
     reloadSidebar();
   }, [reloadSidebar]);
+
+  // Open the real-time change stream while signed in (covers MCP-driven changes).
+  useEffect(() => {
+    if (!user) return;
+    return connectServerEvents();
+  }, [user]);
+
+  // Refresh the sidebar (projects/labels/filters/karma) on any server change.
+  useServerEvents(reloadSidebar);
 
   // First-login guided tour (no-op if already seen or disabled).
   const tourStarted = useRef(false);
@@ -110,11 +150,13 @@ export function App() {
         labels={labels}
         filters={filters}
         karma={karma}
+        counts={counts}
         view={view}
         onSelect={setView}
         onReload={reloadSidebar}
       />
       <main className="flex-1 overflow-y-auto">
+        <SelectionProvider>
         {(() => {
           if (view.kind === 'settings') return <SettingsPage />;
           if (view.kind === 'search') return <SearchAskView projects={projects} labels={labels} onChanged={reloadSidebar} />;
@@ -144,6 +186,7 @@ export function App() {
             />
           );
         })()}
+        </SelectionProvider>
       </main>
     </div>
   );

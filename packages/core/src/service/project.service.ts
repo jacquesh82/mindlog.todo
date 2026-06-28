@@ -4,6 +4,7 @@ import type {
   ProjectUpdateInput,
 } from '../domain/project.js';
 import { BadRequest, NotFound } from '../errors.js';
+import { emitChange } from './changes.js';
 import * as repo from '../repository/project.repo.js';
 
 export async function createProject(
@@ -14,7 +15,7 @@ export async function createProject(
     const parent = await repo.getById(userId, input.parentId);
     if (!parent) throw BadRequest('parentId does not reference an existing project');
   }
-  return repo.insert(userId, {
+  const created = await repo.insert(userId, {
     name: input.name,
     color: input.color ?? null,
     parentId: input.parentId ?? null,
@@ -22,6 +23,8 @@ export async function createProject(
     viewMode: input.viewMode,
     position: input.position,
   });
+  emitChange(userId, { entity: 'project', action: 'create', id: created.id });
+  return created;
 }
 
 export function listProjects(userId: string, includeArchived = false): Promise<Project[]> {
@@ -58,6 +61,7 @@ export async function updateProject(
 
   const updated = await repo.update(userId, id, patch);
   if (!updated) throw NotFound('Project not found');
+  emitChange(userId, { entity: 'project', action: 'update', id });
   return updated;
 }
 
@@ -66,6 +70,7 @@ export async function deleteProject(userId: string, id: string): Promise<void> {
   if (!existing) throw NotFound('Project not found');
   if (existing.isInbox) throw BadRequest('The Inbox project cannot be deleted');
   await repo.remove(userId, id);
+  emitChange(userId, { entity: 'project', action: 'delete', id });
 }
 
 /** Idempotently provision the user's Inbox; returns it either way. */

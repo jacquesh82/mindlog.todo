@@ -1,5 +1,6 @@
 import type { Section, SectionCreateInput, SectionUpdateInput } from '../domain/section.js';
 import { BadRequest, NotFound } from '../errors.js';
+import { emitChange } from './changes.js';
 import * as projectRepo from '../repository/project.repo.js';
 import * as repo from '../repository/section.repo.js';
 
@@ -9,7 +10,9 @@ export async function createSection(
 ): Promise<Section> {
   const project = await projectRepo.getById(userId, input.projectId);
   if (!project) throw BadRequest('projectId does not reference an existing project');
-  return repo.insert(input.projectId, input.name, input.position ?? 0);
+  const created = await repo.insert(input.projectId, input.name, input.position ?? 0);
+  emitChange(userId, { entity: 'section', action: 'create', id: created.id });
+  return created;
 }
 
 export function listSections(userId: string, projectId: string): Promise<Section[]> {
@@ -29,9 +32,11 @@ export async function updateSection(
 ): Promise<Section> {
   const updated = await repo.update(userId, id, patch);
   if (!updated) throw NotFound('Section not found');
+  emitChange(userId, { entity: 'section', action: 'update', id });
   return updated;
 }
 
 export async function deleteSection(userId: string, id: string): Promise<void> {
   if (!(await repo.remove(userId, id))) throw NotFound('Section not found');
+  emitChange(userId, { entity: 'section', action: 'delete', id });
 }

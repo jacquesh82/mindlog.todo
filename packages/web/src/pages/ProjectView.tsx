@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { useServerEvents } from '../api/events';
 import { CalendarView } from '../components/CalendarView';
 import { QuickAdd } from '../components/QuickAdd';
 import { SortBar } from '../components/SortBar';
 import { TaskEditor } from '../components/TaskEditor';
 import { TaskRow } from '../components/TaskRow';
 import { useI18n } from '../i18n';
+import { MarqueeSelect } from '../selection/MarqueeSelect';
+import { SelectionBar, useSelection } from '../selection/Selection';
 import { buildTree, sortTree, type SortMode, type TreeTask } from '../tree';
 import type { Label, Project, ProjectViewMode, Section, Task } from '../types';
 
@@ -29,6 +32,10 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
   const [sectionName, setSectionName] = useState('');
   const [sort, setSort] = useState<SortMode>('manual');
   const [showCompleted, setShowCompleted] = useState(false);
+  const { clear } = useSelection();
+
+  // Drop any selection when switching project.
+  useEffect(() => clear(), [project.id, clear]);
 
   const labelMap = new Map(labels.map((l) => [l.id, l]));
 
@@ -49,6 +56,9 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
     setMode(project.viewMode);
   }, [project.id, project.viewMode]);
   useEffect(() => reload(), [reload]);
+
+  // Refresh project tasks/sections when the server reports a change (incl. via MCP).
+  useServerEvents(reload);
 
   const changed = () => {
     reload();
@@ -112,6 +122,7 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
       ) : mode === 'calendar' ? (
         <CalendarView tasks={tasks} labels={labelMap} onEdit={setEditing} />
       ) : mode === 'board' ? (
+        <MarqueeSelect>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {groups.map((g) => (
             <div key={g.id} className="w-72 shrink-0">
@@ -135,7 +146,9 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
             onAdd={addSection}
           />
         </div>
+        </MarqueeSelect>
       ) : (
+        <MarqueeSelect>
         <div>
           {groups.map((g) => (
             <div key={g.id} className="mb-4">
@@ -173,7 +186,10 @@ export function ProjectView({ project, projects, labels, onDataChanged }: Props)
             )}
           </div>
         </div>
+        </MarqueeSelect>
       )}
+
+      {mode !== 'calendar' && <SelectionBar tasks={tasks} onReload={reload} />}
 
       {editing && (
         <TaskEditor task={editing} projects={projects} labels={labels} onClose={() => setEditing(null)} onSaved={changed} />

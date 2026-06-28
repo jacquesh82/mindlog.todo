@@ -3,8 +3,18 @@ import { api } from '../api/client';
 import { useDialog } from '../dialog';
 import { formatDue, PRIORITY_COLOR } from '../format';
 import { useI18n } from '../i18n';
+import { useSelection } from '../selection/Selection';
+import { useToast } from '../toast';
 import type { Label } from '../types';
 import type { TreeTask } from '../tree';
+
+/** Ids of all descendants (recursive) that are not yet completed. */
+function collectOpenDescendantIds(task: TreeTask): string[] {
+  return task.children.flatMap((c) => [
+    ...(c.status === 'done' ? [] : [c.id]),
+    ...collectOpenDescendantIds(c),
+  ]);
+}
 
 interface Props {
   task: TreeTask;
@@ -18,6 +28,9 @@ interface Props {
 export function TaskRow({ task, labels, onChanged, onEdit, depth = 0 }: Props) {
   const { lang, t } = useI18n();
   const dialog = useDialog();
+  const { toast } = useToast();
+  const selection = useSelection();
+  const selected = selection.has(task.id);
   const [busy, setBusy] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
   const [subTitle, setSubTitle] = useState('');
@@ -26,10 +39,43 @@ export function TaskRow({ task, labels, onChanged, onEdit, depth = 0 }: Props) {
   const hasChildren = task.children.length > 0;
 
   async function complete() {
+    // Un-checking (done → todo): simple, no cascade, no undo prompt.
+    if (done) {
+      setBusy(true);
+      try {
+        await api.updateTask(task.id, { status: 'todo' });
+        onChanged();
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    // Checking (todo → done). If the task has open sub-tasks, confirm cascading.
+    const openDesc = collectOpenDescendantIds(task);
+    if (openDesc.length > 0) {
+      const ok = await dialog.confirm({
+        title: t('task.completeChildrenConfirm', { n: openDesc.length }),
+        confirmLabel: t('task.complete'),
+      });
+      if (!ok) return; // refusal → check nothing (atomic action cancelled)
+    }
+
+    const ids = [task.id, ...openDesc];
     setBusy(true);
     try {
-      await api.updateTask(task.id, { status: done ? 'todo' : 'done' });
+      await Promise.allSettled(ids.map((id) => api.updateTask(id, { status: 'done' })));
       onChanged();
+      toast(t('toast.taskCompleted'), {
+        duration: 7000,
+        action: {
+          label: t('common.undo'),
+          onAction: async () => {
+            await Promise.allSettled(ids.map((id) => api.updateTask(id, { status: 'todo' })));
+            onChanged();
+          },
+        },
+      });
     } finally {
       setBusy(false);
     }
@@ -68,7 +114,19 @@ export function TaskRow({ task, labels, onChanged, onEdit, depth = 0 }: Props) {
 
   return (
     <li>
-      <div className="group flex items-start gap-2 border-b border-line py-2 pr-2" style={{ paddingLeft: depth * 20 + 4 }}>
+      <div
+        data-task-id={task.id}
+        onClickCapture={(e) => {
+          // Ctrl/Cmd+click toggles selection without opening the editor.
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            selection.toggle(task.id);
+          }
+        }}
+        className={`group flex items-start gap-2 border-b border-line py-2 pr-2 ${selected ? 'bg-brand-soft' : ''}`}
+        style={{ paddingLeft: depth * 20 + 4 }}
+      >
         {hasChildren ? (
           <button onClick={() => setCollapsed((c) => !c)} className="mt-0.5 w-4 text-muted hover:text-ink" aria-label="toggle">
             {collapsed ? '▸' : '▾'}

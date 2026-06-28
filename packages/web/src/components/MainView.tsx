@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { useServerEvents } from '../api/events';
 import { startOfToday, startOfTomorrow } from '../format';
 import { useI18n } from '../i18n';
 import type { Filter, Label, Project, Task } from '../types';
@@ -10,6 +11,8 @@ import { SortBar } from './SortBar';
 import { TaskRow } from './TaskRow';
 import { TaskEditor } from './TaskEditor';
 import { QuickAdd } from './QuickAdd';
+import { MarqueeSelect } from '../selection/MarqueeSelect';
+import { SelectionBar, useSelection } from '../selection/Selection';
 
 interface Props {
   view: View;
@@ -75,6 +78,11 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
   const [editing, setEditing] = useState<TreeTask | null>(null);
   const [sort, setSort] = useState<SortMode>('manual');
   const [showCompleted, setShowCompleted] = useState(false);
+  const { clear } = useSelection();
+  const viewKey = 'id' in view ? `${view.kind}:${view.id}` : view.kind;
+
+  // Drop any selection when the active view changes.
+  useEffect(() => clear(), [viewKey, clear]);
 
   const labelMap = new Map(labels.map((l) => [l.id, l]));
   const defaultProjectId =
@@ -92,6 +100,9 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Refresh the task list when the server reports a change (incl. via MCP).
+  useServerEvents(reload);
 
   const changed = () => {
     reload();
@@ -127,12 +138,16 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
           <EmptyState art={<EmptyTasksArt className="h-full w-full" />} title={t('task.empty')} subtitle={t('empty.tasksHint')} />
         )
       ) : (
-        <ul className="mt-2">
-          {tree.map((task) => (
-            <TaskRow key={task.id} task={task} labels={labelMap} onChanged={changed} onEdit={setEditing} />
-          ))}
-        </ul>
+        <MarqueeSelect>
+          <ul className="mt-2">
+            {tree.map((task) => (
+              <TaskRow key={task.id} task={task} labels={labelMap} onChanged={changed} onEdit={setEditing} />
+            ))}
+          </ul>
+        </MarqueeSelect>
       )}
+
+      <SelectionBar tasks={tasks} onReload={reload} />
 
       {editing && (
         <TaskEditor

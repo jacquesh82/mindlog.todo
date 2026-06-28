@@ -1,5 +1,6 @@
 import type { Label, LabelCreateInput, LabelUpdateInput } from '../domain/label.js';
 import { Conflict, NotFound } from '../errors.js';
+import { emitChange } from './changes.js';
 import * as repo from '../repository/label.repo.js';
 
 /** Postgres unique-violation error code. */
@@ -11,7 +12,9 @@ function isUniqueViolation(err: unknown): boolean {
 
 export async function createLabel(userId: string, input: LabelCreateInput): Promise<Label> {
   try {
-    return await repo.insert(userId, input.name, input.color ?? null, input.isFavorite ?? false);
+    const created = await repo.insert(userId, input.name, input.color ?? null, input.isFavorite ?? false);
+    emitChange(userId, { entity: 'label', action: 'create', id: created.id });
+    return created;
   } catch (err) {
     if (isUniqueViolation(err)) throw Conflict('A label with that name already exists');
     throw err;
@@ -36,6 +39,7 @@ export async function updateLabel(
   try {
     const updated = await repo.update(userId, id, patch);
     if (!updated) throw NotFound('Label not found');
+    emitChange(userId, { entity: 'label', action: 'update', id });
     return updated;
   } catch (err) {
     if (isUniqueViolation(err)) throw Conflict('A label with that name already exists');
@@ -45,4 +49,5 @@ export async function updateLabel(
 
 export async function deleteLabel(userId: string, id: string): Promise<void> {
   if (!(await repo.remove(userId, id))) throw NotFound('Label not found');
+  emitChange(userId, { entity: 'label', action: 'delete', id });
 }

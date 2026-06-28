@@ -1,6 +1,7 @@
 import type { Filter, FilterCreateInput, FilterUpdateInput } from '../domain/filter.js';
 import { FilterError, parseFilter } from '../domain/filter-query.js';
 import { BadRequest, NotFound } from '../errors.js';
+import { emitChange } from './changes.js';
 import * as repo from '../repository/filter.repo.js';
 
 /** Validate that a query string parses, surfacing a 400 with the reason. */
@@ -15,7 +16,9 @@ function assertValidQuery(query: string): void {
 
 export async function createFilter(userId: string, input: FilterCreateInput): Promise<Filter> {
   assertValidQuery(input.query);
-  return repo.insert(userId, input.name, input.query, input.color ?? null, input.position ?? 0);
+  const created = await repo.insert(userId, input.name, input.query, input.color ?? null, input.position ?? 0);
+  emitChange(userId, { entity: 'filter', action: 'create', id: created.id });
+  return created;
 }
 
 export function listFilters(userId: string): Promise<Filter[]> {
@@ -36,9 +39,11 @@ export async function updateFilter(
   if (patch.query !== undefined) assertValidQuery(patch.query);
   const updated = await repo.update(userId, id, patch);
   if (!updated) throw NotFound('Filter not found');
+  emitChange(userId, { entity: 'filter', action: 'update', id });
   return updated;
 }
 
 export async function deleteFilter(userId: string, id: string): Promise<void> {
   if (!(await repo.remove(userId, id))) throw NotFound('Filter not found');
+  emitChange(userId, { entity: 'filter', action: 'delete', id });
 }

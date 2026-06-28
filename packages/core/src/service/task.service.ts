@@ -17,6 +17,7 @@ import {
 import { parseQuickAdd, type QuickAddParse } from '../domain/quickadd.js';
 import { nextOccurrence, normalizeRecurrence, parseRecurrence } from '../domain/recurrence.js';
 import * as attachmentRepo from '../repository/attachment.repo.js';
+import { emitChange } from './changes.js';
 import * as karma from './karma.service.js';
 
 /** Embed a task's text plus its attachment content (for RAG over attachments). */
@@ -161,6 +162,7 @@ export async function createTask(userId: string, input: TaskCreateInput): Promis
     embedding,
   );
   if (input.labelIds?.length) await repo.setTaskLabels(created.id, input.labelIds);
+  emitChange(userId, { entity: 'task', action: 'create', id: created.id });
   return (await attachLabels([created]))[0]!;
 }
 
@@ -279,11 +281,13 @@ export async function updateTask(
   const updated = await repo.update(userId, id, next, embedding, completedAt);
   if (!updated) throw NotFound('Task not found');
   if (patch.labelIds !== undefined) await repo.setTaskLabels(updated.id, patch.labelIds);
+  emitChange(userId, { entity: 'task', action: 'update', id });
   return (await attachLabels([updated]))[0]!;
 }
 
 export async function deleteTask(userId: string, id: string): Promise<void> {
   if (!(await repo.remove(userId, id))) throw NotFound('Task not found');
+  emitChange(userId, { entity: 'task', action: 'delete', id });
 }
 
 export async function searchTasks(

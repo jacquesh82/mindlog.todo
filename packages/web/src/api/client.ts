@@ -25,7 +25,7 @@ import type {
   User,
 } from '../types';
 
-const API: string = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+export const API: string = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 const REFRESH_KEY = 'mindlog_refresh';
 
 let accessToken: string | null = null;
@@ -59,6 +59,16 @@ export function hasRefreshToken(): boolean {
 
 export function isAuthenticated(): boolean {
   return Boolean(accessToken);
+}
+
+/** Current in-memory access token (for the SSE stream, which sets its own header). */
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+/** Force an access-token refresh; resolves false if the session is gone. */
+export function refreshAccessToken(): Promise<boolean> {
+  return tryRefresh();
 }
 
 async function tryRefresh(): Promise<boolean> {

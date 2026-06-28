@@ -1,16 +1,12 @@
 import { notePageText } from '../domain/note.js';
+import { interpolatePrompt } from '../domain/prompt.js';
 import type { TaskAskInput, TaskAskResult } from '../domain/task.js';
 import { chatComplete } from '../llm/chat.js';
 import * as aiLog from '../service/ai-log.service.js';
 import { resolveAiConfig } from '../service/ai.service.js';
 import * as noteService from '../service/note.service.js';
+import { resolvePrompt } from '../service/prompt.service.js';
 import { searchTasks } from '../service/task.service.js';
-
-const SYSTEM_PROMPT =
-  'You are a task-management assistant. Answer the user question using ONLY the ' +
-  'provided tasks and notes. Cite tasks by their [n] index and notes by their [Nn] ' +
-  'index. Be concise. If the context does not contain enough information to answer, ' +
-  'say so plainly.';
 
 /** Retrieve the most relevant tasks and notes and have Claude answer (RAG). */
 export async function askTasks(userId: string, input: TaskAskInput): Promise<TaskAskResult> {
@@ -38,10 +34,12 @@ export async function askTasks(userId: string, input: TaskAskInput): Promise<Tas
     .map((p, i) => `[N${i + 1}] ${p.title}\n    ${notePageText('', p.content).slice(0, 1000)}`)
     .join('\n\n');
 
-  const userPrompt =
-    `Tasks:\n${context}` +
-    (noteContext ? `\n\nNotes:\n${noteContext}` : '') +
-    `\n\nQuestion: ${input.question}`;
+  const tpl = await resolvePrompt(userId, 'ask');
+  const userPrompt = interpolatePrompt(tpl.user, {
+    tasks: context,
+    notes: noteContext ? `\n\nNotes:\n${noteContext}` : '',
+    question: input.question,
+  });
 
   // Resolve the effective model/key: shared (cloud) or the user's own (BYOK).
   const ai = await resolveAiConfig(userId);
@@ -52,7 +50,7 @@ export async function askTasks(userId: string, input: TaskAskInput): Promise<Tas
     provider: ai.provider,
     model: ai.model,
     apiKey: ai.apiKey,
-    system: SYSTEM_PROMPT,
+    system: tpl.system,
     prompt: userPrompt,
     maxTokens: 1024,
   });

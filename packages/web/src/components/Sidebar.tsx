@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { formatBytes, formatTokens } from '../format';
 import { useI18n, type Lang } from '../i18n';
 import { useToast } from '../toast';
-import type { Filter, Karma, Label, Project } from '../types';
+import type { AiCredits, Filter, Karma, Label, Project, StorageUsage } from '../types';
 import type { View } from '../app/view';
 import { Avatar } from './Avatar';
 import { FilterModal } from './FilterModal';
@@ -294,6 +295,8 @@ export function Sidebar({ projects, labels, filters, karma, counts, view, onSele
         </div>
       </nav>
 
+      <UsageFooter />
+
       {karma && (
         <div className="border-t border-line px-4 py-2 text-xs">
           <div className="flex items-center justify-between">
@@ -453,6 +456,56 @@ function ProjectRow({
       >
         ⋯
       </button>
+    </div>
+  );
+}
+
+/** Always-visible footer: remaining AI credits (cloud) and remaining disk space. */
+function UsageFooter() {
+  const { t } = useI18n();
+  const [credits, setCredits] = useState<AiCredits | null>(null);
+  const [storage, setStorage] = useState<StorageUsage | null>(null);
+  useEffect(() => {
+    void api.getAiSettings().then((s) => setCredits(s.credits)).catch(() => {});
+    void api.storageUsage().then(setStorage).catch(() => {});
+  }, []);
+  if (!credits && !storage) return null;
+
+  const aiLeft = credits ? Math.max(0, credits.limitTokens - credits.usedTokens) : 0;
+  const aiPct = credits && credits.limitTokens > 0 ? Math.min(100, (credits.usedTokens / credits.limitTokens) * 100) : 0;
+  const diskQuota = storage?.quota ?? 0;
+  const diskUsed = storage?.totalBytes ?? 0;
+  const diskLeft = Math.max(0, diskQuota - diskUsed);
+  const diskPct = diskQuota > 0 ? Math.min(100, (diskUsed / diskQuota) * 100) : 0;
+
+  return (
+    <div className="space-y-1.5 border-t border-line px-4 py-2 text-xs text-muted">
+      {credits && (
+        <div>
+          <div className="flex items-center justify-between">
+            <span>🧠 {t('usage.ai')}</span>
+            <span className="text-ink">{formatTokens(aiLeft)} {t('usage.left')}</span>
+          </div>
+          <UsageBar pct={aiPct} />
+        </div>
+      )}
+      {storage && (
+        <div>
+          <div className="flex items-center justify-between">
+            <span>💾 {t('usage.disk')}</span>
+            <span className="text-ink">{formatBytes(diskLeft)} {t('usage.left')}</span>
+          </div>
+          <UsageBar pct={diskPct} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UsageBar({ pct }: { pct: number }) {
+  return (
+    <div className="mt-0.5 h-1 overflow-hidden rounded bg-line">
+      <div className="h-full bg-brand" style={{ width: `${pct}%` }} />
     </div>
   );
 }

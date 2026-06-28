@@ -18,6 +18,40 @@
   color: var(--color-brand);
 }
 
+/* A note line linked to a real task — mirrors the app's TaskRow checkbox so it
+   reads the same as tasks elsewhere. data-done drives the completed state. */
+.notes-box .note-task {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  vertical-align: baseline;
+}
+.notes-box .note-task-box {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-p4);
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.notes-box .note-task-box:hover { opacity: 0.8; }
+.notes-box .note-task[data-done='1'] .note-task-box { border-color: var(--color-brand); }
+.notes-box .note-task[data-done='1'] .note-task-box::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--color-brand);
+}
+.notes-box .note-task[data-done='1'] .note-task-title {
+  text-decoration: line-through;
+  color: var(--color-muted);
+}
+
 /* mindlog design tokens — a Todoist-like palette in mindlog red. Exposed to
    Tailwind v4 utilities (e.g. bg-brand, text-brand) via @theme. */
 @theme {

@@ -36,6 +36,8 @@ export * from './domain/note.js';
 export * from './domain/ai-log.js';
 export * from './domain/ai-settings.js';
 export * from './domain/dashboard.js';
+export * from './domain/storage.js';
+export * from './domain/prompt.js';
 export * from './domain/karma.js';
 export * from './domain/user.js';
 export {
@@ -70,10 +72,15 @@ export * as noteService from './service/note.service.js';
 export * as authService from './service/auth.service.js';
 export * as aiService from './service/ai.service.js';
 export * as dashboardService from './service/dashboard.service.js';
+export * as storageService from './service/storage.service.js';
+export * as promptService from './service/prompt.service.js';
+export { ensureSeedFile, seedFilePath } from './service/prompt-seed.js';
 export * as oauthService from './service/oauth.service.js';
 export { OAuthError } from './service/oauth.service.js';
 export * as exportService from './service/export.service.js';
 export { askTasks } from './rag/ask.js';
+export { extractTasksFromPage, type ExtractTasksResult } from './rag/extract-tasks.js';
+export { summarizeNotebook } from './rag/summarize-notebook.js';
 
 // Change bus — REST & MCP write paths emit here; the SSE endpoint subscribes.
 export { emitChange, subscribeChanges, type ChangeEvent, type ChangeEntity } from './service/changes.js';

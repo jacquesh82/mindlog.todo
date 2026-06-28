@@ -2,6 +2,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { config } from '@mindlog/core';
 import type { Request, Response } from 'express';
 import { resolveUserId } from '../middleware/auth.js';
+import type { MindlogPlugin } from '../plugin.js';
 import { createMcpServer } from './tools.js';
 
 /**
@@ -9,7 +10,7 @@ import { createMcpServer } from './tools.js';
  * `Authorization: Bearer <jwt|mlt_…>` header, then gets a fresh per-request
  * server/transport scoped to that user.
  */
-export function mcpHttpHandler() {
+export function mcpHttpHandler(plugins: MindlogPlugin[] = []) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = await resolveUserId(req.header('authorization'));
     if (!userId) {
@@ -25,7 +26,7 @@ export function mcpHttpHandler() {
       return;
     }
 
-    const server = createMcpServer(userId);
+    const server = createMcpServer(userId, plugins);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 
     res.on('close', () => {

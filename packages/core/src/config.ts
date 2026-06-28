@@ -67,6 +67,9 @@ export const config = {
   },
   // Monthly per-user token budget enforced in cloud-hosted mode.
   aiMonthlyTokenLimit: intEnv('AI_MONTHLY_TOKEN_LIMIT', 1_000_000),
+  // JSON seed file for the editable AI prompts: read at startup as the defaults,
+  // and the target/source of the Settings → AI → Prompts "sync to/from seed" buttons.
+  promptsSeedFile: env('PROMPTS_SEED_FILE', resolve(process.cwd(), 'prompts.seed.json')),
   // Master key for encrypting per-user secrets at rest (their own LLM API key).
   encryptionKey: env('ENCRYPTION_KEY'),
 

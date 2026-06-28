@@ -3,12 +3,51 @@ import {
   aiModelsQuerySchema,
   aiService,
   aiSettingsUpdateSchema,
+  BadRequest,
+  isPromptKey,
+  promptSaveSchema,
+  promptService,
 } from '@mindlog/core';
 import { Router } from 'express';
 import { requireAuth, userId } from '../middleware/auth.js';
 
 export const aiRouter: Router = Router();
 aiRouter.use(requireAuth);
+
+function promptKey(raw: string) {
+  if (!isPromptKey(raw)) throw BadRequest('Unknown prompt key');
+  return raw;
+}
+
+// AI prompt templates (SYSTEM + USER) — editable in Settings → AI → Prompts.
+aiRouter.get('/prompts', async (req, res) => {
+  res.json(await promptService.listPrompts(userId(req)));
+});
+
+aiRouter.put('/prompts/:key', async (req, res) => {
+  const key = promptKey(req.params.key!);
+  res.json(await promptService.savePrompt(userId(req), key, promptSaveSchema.parse(req.body)));
+});
+
+// Reset one prompt to its seed value.
+aiRouter.delete('/prompts/:key', async (req, res) => {
+  res.json(await promptService.resetPrompt(userId(req), promptKey(req.params.key!)));
+});
+
+// Re-inject the built-in defaults for every prompt.
+aiRouter.post('/prompts/reset', async (req, res) => {
+  res.json(await promptService.resetAllPrompts(userId(req)));
+});
+
+// Sync the current prompts TO the seed file (they become the default at startup).
+aiRouter.post('/prompts/seed/export', async (req, res) => {
+  res.json(await promptService.exportSeed(userId(req)));
+});
+
+// Sync FROM the seed file: re-inject its prompts as the active set.
+aiRouter.post('/prompts/seed/import', async (req, res) => {
+  res.json(await promptService.importSeed(userId(req)));
+});
 
 aiRouter.get('/usage', async (req, res) => {
   res.json(await aiLogService.getUsage(userId(req)));

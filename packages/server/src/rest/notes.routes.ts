@@ -1,9 +1,11 @@
 import {
+  extractTasksFromPage,
   notebookCreateSchema,
   notebookUpdateSchema,
   noteService,
   pageCreateSchema,
   pageUpdateSchema,
+  summarizeNotebook,
 } from '@mindlog/core';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -34,6 +36,11 @@ notesRouter.post('/notebooks/:id/rag', async (req, res) => {
   res.json({ updated: count });
 });
 
+// AI: summarize every page of a notebook into a brand-new "Summary" page.
+notesRouter.post('/notebooks/:id/summarize', async (req, res) => {
+  res.status(201).json(await summarizeNotebook(userId(req), req.params.id!));
+});
+
 // Pages
 notesRouter.get('/notebooks/:id/pages', async (req, res) => {
   res.json(await noteService.listPages(userId(req), req.params.id!));
@@ -43,6 +50,10 @@ notesRouter.post('/notebooks/:id/pages', async (req, res) => {
 });
 notesRouter.get('/pages/:id', async (req, res) => {
   res.json(await noteService.getPage(userId(req), req.params.id!));
+});
+// AI: propose tasks extracted from a page (preview only — no tasks are created).
+notesRouter.post('/pages/:id/extract-tasks', async (req, res) => {
+  res.json(await extractTasksFromPage(userId(req), req.params.id!));
 });
 notesRouter.post('/pages/:id/duplicate', async (req, res) => {
   res.status(201).json(await noteService.duplicatePage(userId(req), req.params.id!));

@@ -5,6 +5,7 @@ import swaggerUi from 'swagger-ui-express';
 import { mcpHttpHandler } from '../mcp/http.js';
 import { authenticate } from '../middleware/auth.js';
 import { errorHandler } from '../middleware/errors.js';
+import type { MindlogPlugin } from '../plugin.js';
 import { getOpenApiDocument } from '../openapi.js';
 import { accountRouter } from './account.routes.js';
 import { authRouter } from './auth.routes.js';
@@ -20,9 +21,10 @@ import { notesRouter } from './notes.routes.js';
 import { oauthConsentRouter, oauthRouter } from './oauth.routes.js';
 import { projectsRouter } from './projects.routes.js';
 import { sectionsRouter } from './sections.routes.js';
+import { storageRouter } from './storage.routes.js';
 import { tasksRouter } from './tasks.routes.js';
 
-export function createApp(): Express {
+export function createApp(plugins: MindlogPlugin[] = []): Express {
   const app = express();
   app.use(cors());
   // Generous limit so note pages can embed pasted images (base64 data URLs).
@@ -45,7 +47,7 @@ export function createApp(): Express {
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
 
   // MCP Streamable HTTP endpoint (auth handled inside the handler).
-  const mcp = mcpHttpHandler();
+  const mcp = mcpHttpHandler(plugins);
   app.post('/mcp', mcp);
   app.get('/mcp', mcp);
   app.delete('/mcp', mcp);
@@ -72,9 +74,17 @@ export function createApp(): Express {
   app.use('/api/v1/calendar', calendarRouter);
   app.use('/api/v1/notes', notesRouter);
   app.use('/api/v1/dashboard', dashboardRouter);
+  app.use('/api/v1/storage', storageRouter);
   app.use('/api/v1/events', eventsRouter);
   app.use('/api/v1/attachments', attachmentsRouter);
   app.use('/api/v1/tasks', tasksRouter);
+
+  // Plugin-contributed routes (mounted after built-ins, before the error
+  // handler). A plugin mounting under /api/v1 inherits the `authenticate`
+  // middleware registered above.
+  for (const plugin of plugins) {
+    plugin.registerRoutes?.(app);
+  }
 
   app.use(errorHandler);
   return app;

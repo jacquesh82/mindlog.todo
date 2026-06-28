@@ -23,6 +23,7 @@ import {
 } from '@mindlog/core';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import type { MindlogPlugin } from '../plugin.js';
 
 function jsonResult(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
@@ -35,7 +36,7 @@ const statusEnum = z.enum(TASK_STATUSES);
  * (HTTP per request, or stdio for the whole process) supplies the resolved
  * `userId` from the presented API key.
  */
-export function createMcpServer(userId: string): McpServer {
+export function createMcpServer(userId: string, plugins: MindlogPlugin[] = []): McpServer {
   const server = new McpServer({ name: 'mindlog-todo', version: '0.0.0' });
 
   server.registerTool(
@@ -426,6 +427,11 @@ export function createMcpServer(userId: string): McpServer {
     },
     async ({ query }) => jsonResult(await taskService.runFilterQuery(userId, query)),
   );
+
+  // Plugin-contributed tools (registered after the built-ins).
+  for (const plugin of plugins) {
+    plugin.registerMcpTools?.(server, userId);
+  }
 
   return server;
 }

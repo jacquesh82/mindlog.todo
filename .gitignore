@@ -28,6 +28,10 @@ models/
 # local TLS certificates
 certs/
 
+# database backups (contain secrets + all user data — never commit)
+backups/
+.env.bak.*
+
 # local dual-graph MCP state
 .dual-graph/
 

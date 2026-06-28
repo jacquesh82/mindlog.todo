@@ -1,8 +1,11 @@
-import { closePool, config, migrate } from '@mindlog/core';
+import { closePool, config, ensureSeedFile, migrate, seedFilePath } from '@mindlog/core';
 import { createApp } from './rest/app.js';
 
 async function main(): Promise<void> {
   await migrate();
+  // Create the AI prompts seed file from the built-in defaults if absent.
+  ensureSeedFile();
+  console.log(`[mindlog] prompts seed file: ${seedFilePath()}`);
 
   const app = createApp();
   const server = app.listen(config.port, () => {

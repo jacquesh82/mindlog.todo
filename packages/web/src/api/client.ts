@@ -17,8 +17,10 @@ import type {
   Label,
   Project,
   ProjectViewMode,
+  PromptView,
   QuickAddPreview,
   Section,
+  StorageUsage,
   Task,
   TaskHit,
   TaskStatus,
@@ -241,6 +243,28 @@ export const api = {
     });
   },
 
+  // AI prompt templates (Settings → AI → Prompts)
+  getPrompts(): Promise<PromptView[]> {
+    return request<PromptView[]>('/api/v1/ai/prompts');
+  },
+  savePrompt(key: string, body: { system: string; user: string }): Promise<PromptView> {
+    return request<PromptView>(`/api/v1/ai/prompts/${key}`, { method: 'PUT', body: JSON.stringify(body) });
+  },
+  resetPrompt(key: string): Promise<PromptView> {
+    return request<PromptView>(`/api/v1/ai/prompts/${key}`, { method: 'DELETE' });
+  },
+  resetAllPrompts(): Promise<PromptView[]> {
+    return request<PromptView[]>('/api/v1/ai/prompts/reset', { method: 'POST' });
+  },
+  /** Write current prompts to the seed file (sync → file). */
+  syncPromptsToSeed(): Promise<PromptView[]> {
+    return request<PromptView[]>('/api/v1/ai/prompts/seed/export', { method: 'POST' });
+  },
+  /** Re-inject prompts from the seed file (sync ← file). */
+  syncPromptsFromSeed(): Promise<PromptView[]> {
+    return request<PromptView[]>('/api/v1/ai/prompts/seed/import', { method: 'POST' });
+  },
+
   // tasks
   listTasks(params: Record<string, string> = {}): Promise<Task[]> {
     const qs = new URLSearchParams(params).toString();
@@ -248,6 +272,9 @@ export const api = {
   },
   createTask(input: TaskInput): Promise<Task> {
     return request<Task>('/api/v1/tasks', { method: 'POST', body: JSON.stringify(input) });
+  },
+  getTask(id: string): Promise<Task> {
+    return request<Task>(`/api/v1/tasks/${id}`);
   },
   updateTask(id: string, patch: Partial<TaskInput>): Promise<Task> {
     return request<Task>(`/api/v1/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
@@ -338,6 +365,14 @@ export const api = {
       body: JSON.stringify({ inRag }),
     });
   },
+  /** AI: propose tasks from a page's content (preview only — nothing is created). */
+  extractPageTasks(pageId: string): Promise<{ tasks: string[] }> {
+    return request<{ tasks: string[] }>(`/api/v1/notes/pages/${pageId}/extract-tasks`, { method: 'POST' });
+  },
+  /** AI: summarize a notebook's pages into a new "Summary" page. */
+  summarizeNotebook(notebookId: string): Promise<NotePage> {
+    return request<NotePage>(`/api/v1/notes/notebooks/${notebookId}/summarize`, { method: 'POST' });
+  },
 
   // attachments (feed the RAG)
   listAttachments(taskId: string): Promise<Attachment[]> {
@@ -426,6 +461,11 @@ export const api = {
   // dashboard KPIs
   dashboard(): Promise<DashboardStats> {
     return request<DashboardStats>('/api/v1/dashboard');
+  },
+
+  // per-user storage footprint (Settings → Data)
+  storageUsage(): Promise<StorageUsage> {
+    return request<StorageUsage>('/api/v1/storage');
   },
 
   // deployed version (Settings → About)

@@ -4,7 +4,7 @@ import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
 import { NotesEditor } from '../components/NotesEditor';
-import type { Notebook, NotePage, NotePageSummary } from '../types';
+import type { Label, Notebook, NotePage, NotePageSummary, Project } from '../types';
 
 // A OneNote-lite 3-pane workspace: notebooks | pages | editor.
 export function NotesView() {
@@ -16,6 +16,10 @@ export function NotesView() {
   const [pages, setPages] = useState<NotePageSummary[]>([]);
   const [page, setPage] = useState<NotePage | null>(null);
   const [saved, setSaved] = useState(true);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [labels, setLabels] = useState<Label[]>([]);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [taskPreview, setTaskPreview] = useState<{ text: string; checked: boolean }[] | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reloadNotebooks = useCallback(() => {
@@ -25,6 +29,12 @@ export function NotesView() {
     });
   }, []);
   useEffect(reloadNotebooks, [reloadNotebooks]);
+
+  // Projects & labels feed the #project / @label autocomplete in the editor.
+  useEffect(() => {
+    void api.listProjects().then(setProjects).catch(() => {});
+    void api.listLabels().then(setLabels).catch(() => {});
+  }, []);
 
   const reloadPages = useCallback((nbId: string) => {
     void api.listPages(nbId).then(setPages);
@@ -124,10 +134,65 @@ export function NotesView() {
     toast(updated.inRag ? t('notes.ragOn') : t('notes.ragOff'));
   }
 
-  /** Turn a note line into a real task (lands in the Inbox / normal task lists). */
-  async function createTaskFromNote(text: string) {
-    const task = await api.createTask({ title: text.slice(0, 500) });
-    toast(t('toast.taskCreated', { title: task.title }));
+  /**
+   * Turn a note line into a real task via Quick Add (so #project / @label / p1 /
+   * dates parse). Returns the created task so the editor can render it inline.
+   */
+  async function createTaskFromNote(text: string): Promise<{ id: string; title: string } | null> {
+    try {
+      const task = await api.quickAdd(text.slice(0, 500));
+      toast(t('toast.taskCreated', { title: task.title }));
+      return { id: task.id, title: task.title };
+    } catch {
+      toast(t('notes.taskFailed'), 'error');
+      return null;
+    }
+  }
+
+  /** AI: ask the model to extract tasks from the open page, then preview them. */
+  async function convertPageToTasks() {
+    if (!page || aiBusy) return;
+    setAiBusy(true);
+    try {
+      const { tasks } = await api.extractPageTasks(page.id);
+      setTaskPreview(tasks.map((text) => ({ text, checked: true })));
+    } catch {
+      toast(t('notes.aiFailed'), 'error');
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  /** Create the tasks the user kept ticked in the preview (via Quick Add parsing). */
+  async function createPreviewedTasks() {
+    const items = (taskPreview ?? []).filter((i) => i.checked && i.text.trim());
+    setTaskPreview(null);
+    let count = 0;
+    for (const i of items) {
+      try {
+        await api.quickAdd(i.text.trim());
+        count += 1;
+      } catch {
+        /* skip a line that fails to parse rather than aborting the batch */
+      }
+    }
+    if (count) toast(t('notes.toTasksDone', { count }));
+  }
+
+  /** AI: summarize the active notebook into a new page, then open it. */
+  async function runSummarize() {
+    if (!activeNb || aiBusy) return;
+    setAiBusy(true);
+    try {
+      const p = await api.summarizeNotebook(activeNb);
+      reloadPages(activeNb);
+      await openPage(p.id);
+      toast(t('notes.summarizeDone'));
+    } catch {
+      toast(t('notes.aiFailed'), 'error');
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   // Debounced autosave of the open page.
@@ -191,7 +256,19 @@ export function NotesView() {
       <div className="flex w-60 shrink-0 flex-col border-r border-line">
         <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase text-muted">
           {t('notes.pages')}
-          {activeNb && <button onClick={addPage} className="hover:text-brand" title={t('notes.addPage')}>＋</button>}
+          {activeNb && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void runSummarize()}
+                disabled={aiBusy || pages.length === 0}
+                className="hover:text-brand disabled:opacity-40"
+                title={t('notes.summarizeHint')}
+              >
+                ✨
+              </button>
+              <button onClick={addPage} className="hover:text-brand" title={t('notes.addPage')}>＋</button>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto">
           {pages.map((p) => (
@@ -240,13 +317,23 @@ export function NotesView() {
               className="w-full border-b border-line pb-2 text-2xl font-bold text-ink outline-none"
             />
             <div className="mt-1 flex items-center justify-between text-xs text-muted">
-              <button
-                onClick={() => void toggleRag()}
-                title={t('notes.ragHint')}
-                className={`rounded-md border px-2 py-0.5 ${page.inRag ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted hover:text-ink'}`}
-              >
-                {page.inRag ? `🧠 ${t('notes.ragOnLabel')}` : `🧠 ${t('notes.ragAdd')}`}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => void toggleRag()}
+                  title={t('notes.ragHint')}
+                  className={`rounded-md border px-2 py-0.5 ${page.inRag ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted hover:text-ink'}`}
+                >
+                  {page.inRag ? `🧠 ${t('notes.ragOnLabel')}` : `🧠 ${t('notes.ragAdd')}`}
+                </button>
+                <button
+                  onClick={() => void convertPageToTasks()}
+                  disabled={aiBusy}
+                  title={t('notes.toTasksHint')}
+                  className="rounded-md border border-line px-2 py-0.5 text-muted hover:text-ink disabled:opacity-40"
+                >
+                  {aiBusy ? `⏳ ${t('notes.toTasks')}` : `✓ ${t('notes.toTasks')}`}
+                </button>
+              </div>
               <span>{saved ? t('notes.saved') : t('notes.saving')}</span>
             </div>
             <NotesEditor
@@ -254,12 +341,65 @@ export function NotesView() {
               initialContent={page.content}
               onChange={(content) => edit({ content })}
               onCreateTask={createTaskFromNote}
+              projects={projects}
+              labels={labels}
             />
           </div>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-muted">{t('notes.empty')}</div>
         )}
       </div>
+
+      {/* Convert-to-tasks preview: tick the tasks to create (lands in the Inbox). */}
+      {taskPreview && (
+        <div
+          className="fixed inset-0 z-[1100] flex items-start justify-center bg-black/40 p-4 pt-24"
+          onClick={() => setTaskPreview(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-xl border border-line bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-sm font-semibold text-ink">{t('notes.toTasksTitle')}</h2>
+            {taskPreview.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">{t('notes.toTasksEmpty')}</p>
+            ) : (
+              <ul className="mt-3 max-h-72 space-y-1 overflow-y-auto">
+                {taskPreview.map((item, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={item.checked}
+                      onChange={(e) =>
+                        setTaskPreview((prev) => prev?.map((p, j) => (j === i ? { ...p, checked: e.target.checked } : p)) ?? prev)
+                      }
+                      className="accent-brand"
+                    />
+                    <input
+                      value={item.text}
+                      onChange={(e) =>
+                        setTaskPreview((prev) => prev?.map((p, j) => (j === i ? { ...p, text: e.target.value } : p)) ?? prev)
+                      }
+                      className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-ink outline-none focus:border-brand"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setTaskPreview(null)} className="rounded-md px-3 py-1.5 text-sm text-ink hover:bg-line/60">
+                {t('task.cancel')}
+              </button>
+              <button
+                onClick={() => void createPreviewedTasks()}
+                disabled={!taskPreview.some((i) => i.checked && i.text.trim())}
+                className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-50"
+              >
+                {t('notes.toTasksCreate')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

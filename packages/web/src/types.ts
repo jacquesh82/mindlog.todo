@@ -186,6 +186,24 @@ export interface DashboardStats {
   karma: Karma | null;
 }
 
+export type PromptKey = 'ask' | 'extract_tasks' | 'summarize';
+
+export interface PromptView {
+  key: PromptKey;
+  system: string;
+  user: string;
+  isCustom: boolean;
+  placeholders: string[];
+}
+
+export interface StorageUsage {
+  notesBytes: number;
+  attachmentsBytes: number;
+  totalBytes: number;
+  quota: number;
+  cloudHosted: boolean;
+}
+
 export interface Attachment {
   id: string;
   taskId: string;

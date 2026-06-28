@@ -112,47 +112,49 @@ export function SelectionBar({ tasks, onReload }: { tasks: Task[]; onReload: () 
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-[950] flex -translate-x-1/2 items-center gap-1 rounded-xl border border-line bg-surface px-2 py-1.5 text-sm shadow-xl">
-      <span className="px-2 font-medium text-ink">{t('select.count', { n: selectedTasks.length })}</span>
-      <button
-        onClick={() => void set(tasks.map((task) => task.id))}
-        className="rounded-md px-2 py-1 text-muted hover:bg-line/60 hover:text-ink"
-      >
-        {t('select.all')}
-      </button>
-      <span className="mx-1 h-5 w-px bg-line" />
-      <button
-        onClick={() => void applyStatus(() => 'done')}
-        className="rounded-md px-2 py-1 text-ink hover:bg-line/60"
-      >
-        ✓ {t('select.check')}
-      </button>
-      <button
-        onClick={() => void applyStatus(() => 'todo')}
-        className="rounded-md px-2 py-1 text-ink hover:bg-line/60"
-      >
-        ○ {t('select.uncheck')}
-      </button>
-      <button
-        onClick={() => void applyStatus((task) => (task.status === 'done' ? 'todo' : 'done'))}
-        className="rounded-md px-2 py-1 text-ink hover:bg-line/60"
-      >
-        ⇄ {t('select.toggle')}
-      </button>
-      <button
-        onClick={() => void removeAll()}
-        className="rounded-md px-2 py-1 text-[var(--color-p1)] hover:bg-line/60"
-      >
-        🗑 {t('task.delete')}
-      </button>
-      <span className="mx-1 h-5 w-px bg-line" />
-      <button
-        onClick={() => clear()}
-        title={t('select.clear')}
-        className="rounded-md px-2 py-1 text-muted hover:bg-line/60 hover:text-ink"
-      >
-        ✕
-      </button>
+    <div className="pointer-events-none fixed inset-x-0 bottom-8 z-[950] flex justify-center px-4">
+      <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-brand-hover bg-brand px-3 py-2 text-sm text-white shadow-2xl ring-1 ring-black/10">
+        <span className="px-2 font-semibold">{t('select.count', { n: selectedTasks.length })}</span>
+        <button
+          onClick={() => void set(tasks.map((task) => task.id))}
+          className="rounded-full px-2.5 py-1 text-white/85 hover:bg-white/20 hover:text-white"
+        >
+          {t('select.all')}
+        </button>
+        <span className="mx-1 h-5 w-px bg-white/30" />
+        <button
+          onClick={() => void applyStatus(() => 'done')}
+          className="rounded-full px-2.5 py-1 font-medium hover:bg-white/20"
+        >
+          ✓ {t('select.check')}
+        </button>
+        <button
+          onClick={() => void applyStatus(() => 'todo')}
+          className="rounded-full px-2.5 py-1 hover:bg-white/20"
+        >
+          ○ {t('select.uncheck')}
+        </button>
+        <button
+          onClick={() => void applyStatus((task) => (task.status === 'done' ? 'todo' : 'done'))}
+          className="rounded-full px-2.5 py-1 hover:bg-white/20"
+        >
+          ⇄ {t('select.toggle')}
+        </button>
+        <button
+          onClick={() => void removeAll()}
+          className="rounded-full px-2.5 py-1 hover:bg-white/25"
+        >
+          🗑 {t('task.delete')}
+        </button>
+        <span className="mx-1 h-5 w-px bg-white/30" />
+        <button
+          onClick={() => clear()}
+          title={t('select.clear')}
+          className="rounded-full px-2.5 py-1 text-white/85 hover:bg-white/20 hover:text-white"
+        >
+          ✕
+        </button>
+      </div>
     </div>
   );
 }

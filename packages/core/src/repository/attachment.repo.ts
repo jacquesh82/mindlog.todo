@@ -71,6 +71,15 @@ export async function remove(userId: string, id: string): Promise<string | null>
   return rows[0]?.task_id ?? null;
 }
 
+/** Total bytes of all attachments owned by a user. */
+export async function userContentBytes(userId: string): Promise<number> {
+  const { rows } = await getPool().query<{ total: string | null }>(
+    `SELECT COALESCE(sum(byte_size), 0) AS total FROM attachments WHERE user_id = $1`,
+    [userId],
+  );
+  return Number(rows[0]?.total ?? 0);
+}
+
 /** Concatenated attachment text for a task (used to enrich its embedding). */
 export async function textForTask(taskId: string): Promise<string> {
   const { rows } = await getPool().query<{ filename: string; content: string }>(

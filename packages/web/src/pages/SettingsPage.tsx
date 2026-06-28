@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useI18n, LANGS, type Lang } from '../i18n';
 import { useDialog } from '../dialog';
@@ -15,7 +15,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { isTourDisabled, setTourDisabled, startTour } from '../tour';
 import { OSS_DEPENDENCIES } from '../oss';
-import type { AiLog, AiSettings, AiUsage, ApiKey, CalendarSource, User } from '../types';
+import type { AiLog, AiSettings, AiUsage, ApiKey, CalendarSource, PromptView, StorageUsage, User } from '../types';
 
 /** Inline stroke icon (Lucide geometry) — replaces emoji so icons theme + scale cleanly. */
 function Svg({ className, children }: { className?: string; children: React.ReactNode }) {
@@ -460,6 +460,184 @@ function AiConfigCard() {
       >
         {t('settings.ai.save')}
       </button>
+    </Card>
+  );
+}
+
+/**
+ * Settings → AI → Prompts. One prompt is shown at a time (segmented selector),
+ * so each gets the full card width and tall auto-growing monospace editors —
+ * maximising space to read/edit long SYSTEM/USER prompts.
+ */
+function AiPromptsCard() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [prompts, setPrompts] = useState<PromptView[] | null>(null);
+  const [draft, setDraft] = useState<Record<string, { system: string; user: string }>>({});
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    void api
+      .getPrompts()
+      .then((ps) => {
+        setPrompts(ps);
+        setDraft(Object.fromEntries(ps.map((p) => [p.key, { system: p.system, user: p.user }])));
+        setActiveKey((k) => k ?? ps[0]?.key ?? null);
+      })
+      .catch(() => {});
+  }, []);
+  useEffect(load, [load]);
+
+  if (!prompts || !activeKey) return null;
+  const active = prompts.find((p) => p.key === activeKey) ?? prompts[0]!;
+  const d = draft[active.key] ?? { system: active.system, user: active.user };
+  const isDirty = (p: PromptView) => {
+    const dd = draft[p.key];
+    return !!dd && (dd.system !== p.system || dd.user !== p.user);
+  };
+  const dirty = isDirty(active);
+
+  function patch(key: string, field: 'system' | 'user', value: string) {
+    setDraft((dr) => ({ ...dr, [key]: { ...dr[key]!, [field]: value } }));
+  }
+
+  async function save(key: string) {
+    setBusy(true);
+    try {
+      const updated = await api.savePrompt(key, draft[key]!);
+      setPrompts((ps) => ps?.map((p) => (p.key === key ? updated : p)) ?? ps);
+      toast(t('settings.prompts.saved'));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Error', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function reset(key: string) {
+    const updated = await api.resetPrompt(key);
+    setPrompts((ps) => ps?.map((p) => (p.key === key ? updated : p)) ?? ps);
+    setDraft((dr) => ({ ...dr, [key]: { system: updated.system, user: updated.user } }));
+    toast(t('settings.prompts.resetDone'));
+  }
+  function applyAll(ps: PromptView[]) {
+    setPrompts(ps);
+    setDraft(Object.fromEntries(ps.map((p) => [p.key, { system: p.system, user: p.user }])));
+  }
+  async function syncToSeed() {
+    applyAll(await api.syncPromptsToSeed());
+    toast(t('settings.prompts.syncedToSeed'));
+  }
+  async function syncFromSeed() {
+    applyAll(await api.syncPromptsFromSeed());
+    toast(t('settings.prompts.syncedFromSeed'));
+  }
+
+  const taCls =
+    'field-sizing-content w-full resize-y overflow-auto rounded-md border border-line bg-surface px-3 py-2.5 font-mono text-[13px] leading-relaxed text-ink outline-none focus:border-brand';
+
+  return (
+    <Card title={t('settings.prompts.title')} icon={<SparklesIcon className="h-4 w-4" />}>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <p className="text-sm text-muted">{t('settings.prompts.hint')}</p>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <button onClick={load} className="rounded-md border border-line px-2 py-1 text-sm text-ink hover:bg-line/60">
+            {t('settings.prompts.reload')}
+          </button>
+          <button
+            onClick={() => void syncFromSeed()}
+            title={t('settings.prompts.syncFromSeedHint')}
+            className="rounded-md border border-line px-2 py-1 text-sm text-ink hover:bg-line/60"
+          >
+            ⤓ {t('settings.prompts.syncFromSeed')}
+          </button>
+          <button
+            onClick={() => void syncToSeed()}
+            title={t('settings.prompts.syncToSeedHint')}
+            className="rounded-md border border-line px-2 py-1 text-sm text-ink hover:bg-line/60"
+          >
+            ⤒ {t('settings.prompts.syncToSeed')}
+          </button>
+        </div>
+      </div>
+
+      {/* Segmented selector — one prompt visible at a time gives it the full width. */}
+      <div role="tablist" className="mb-4 flex flex-wrap gap-1 rounded-lg bg-sidebar p-1">
+        {prompts.map((p) => (
+          <button
+            key={p.key}
+            role="tab"
+            aria-selected={p.key === active.key}
+            onClick={() => setActiveKey(p.key)}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition ${
+              p.key === active.key ? 'bg-surface font-medium text-ink shadow-sm' : 'text-muted hover:text-ink'
+            }`}
+          >
+            {t(`settings.prompts.key.${p.key}`)}
+            {isDirty(p) && <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden />}
+          </button>
+        ))}
+      </div>
+
+      {/* Active prompt editor */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-ink">{t(`settings.prompts.key.${active.key}`)}</span>
+            {active.isCustom && (
+              <span className="rounded bg-brand-soft px-1.5 py-0.5 text-xs text-brand">{t('settings.prompts.custom')}</span>
+            )}
+          </div>
+          {active.placeholders.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-xs text-muted">{t('settings.prompts.placeholders')}:</span>
+              {active.placeholders.map((x) => (
+                <code key={x} className="rounded bg-line/60 px-1.5 py-0.5 font-mono text-xs text-muted">{`{${x}}`}</code>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor={`prompt-system-${active.key}`} className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            {t('settings.prompts.system')}
+          </label>
+          <textarea
+            id={`prompt-system-${active.key}`}
+            value={d.system}
+            onChange={(e) => patch(active.key, 'system', e.target.value)}
+            className={`${taCls} min-h-28 max-h-80`}
+          />
+        </div>
+
+        <div>
+          <label htmlFor={`prompt-user-${active.key}`} className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            {t('settings.prompts.user')}
+          </label>
+          <textarea
+            id={`prompt-user-${active.key}`}
+            value={d.user}
+            onChange={(e) => patch(active.key, 'user', e.target.value)}
+            className={`${taCls} min-h-44 max-h-[34rem]`}
+          />
+        </div>
+
+        <div className="flex items-center justify-between border-t border-line pt-3">
+          <button onClick={() => void reset(active.key)} className="text-sm text-muted hover:text-ink">
+            {t('settings.prompts.resetOne')}
+          </button>
+          <div className="flex items-center gap-3">
+            {dirty && <span className="text-xs text-muted">{t('settings.prompts.unsaved')}</span>}
+            <button
+              onClick={() => void save(active.key)}
+              disabled={busy || !dirty}
+              className="rounded-md bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-50"
+            >
+              {t('settings.prompts.save')}
+            </button>
+          </div>
+        </div>
+      </div>
     </Card>
   );
 }
@@ -930,6 +1108,7 @@ export function SettingsPage() {
           {active === 'ai' && (
             <>
               <AiConfigCard />
+              <AiPromptsCard />
               <AiActivityCard />
             </>
           )}
@@ -940,11 +1119,63 @@ export function SettingsPage() {
               <McpConnectorCard />
             </>
           )}
-          {active === 'data' && <DataExportCard />}
+          {active === 'data' && (
+            <>
+              <StorageCard />
+              <DataExportCard />
+            </>
+          )}
           {active === 'about' && <AboutCard />}
         </div>
       </div>
     </div>
+  );
+}
+
+/** Human-readable byte size (B / KB / MB / GB). */
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v >= 10 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+}
+
+/** Per-user database storage footprint (notes + attachments). */
+function StorageCard() {
+  const { t } = useI18n();
+  const [u, setU] = useState<StorageUsage | null>(null);
+  useEffect(() => {
+    void api.storageUsage().then(setU).catch(() => setU(null));
+  }, []);
+  if (!u) return null;
+
+  const pct = u.quota > 0 ? Math.min(100, Math.round((u.totalBytes / u.quota) * 100)) : 0;
+  return (
+    <Card title={t('settings.storage.title')} icon={<DownloadIcon className="h-4 w-4" />}>
+      <p className="mb-3 text-sm text-muted">{t('settings.storage.hint')}</p>
+      <div className="mb-1 flex justify-between text-sm">
+        <span className="text-muted">{t('settings.storage.total')}</span>
+        <span className="text-ink">
+          {u.cloudHosted
+            ? formatBytes(u.totalBytes)
+            : t('settings.storage.ofQuota', { used: formatBytes(u.totalBytes), quota: formatBytes(u.quota) })}
+        </span>
+      </div>
+      {!u.cloudHosted && (
+        <div className="h-2 overflow-hidden rounded bg-line">
+          <div className="h-full bg-brand" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+      <dl className="mt-3 space-y-1 text-sm">
+        <Row label={t('settings.storage.notes')} value={formatBytes(u.notesBytes)} />
+        <Row label={t('settings.storage.attachments')} value={formatBytes(u.attachmentsBytes)} />
+      </dl>
+    </Card>
   );
 }
 
@@ -991,22 +1222,32 @@ function DataExportCard() {
 function AboutCard() {
   const { t } = useI18n();
   const [info, setInfo] = useState<{ version: string; buildDate: string } | null>(null);
+  const [cloud, setCloud] = useState<boolean | null>(null);
   useEffect(() => {
     void api
       .version()
       .then(setInfo)
       .catch(() => setInfo({ version: '—', buildDate: '' }));
+    void api
+      .storageUsage()
+      .then((u) => setCloud(u.cloudHosted))
+      .catch(() => setCloud(null));
   }, []);
 
   const built = info?.buildDate ? new Date(info.buildDate) : null;
   const builtLabel = built && !Number.isNaN(built.getTime()) ? built.toLocaleString() : '—';
+  const modeLabel = cloud === null ? '…' : cloud ? t('settings.mode.cloud') : t('settings.mode.self');
 
   return (
     <Card title={t('settings.cat.about')} icon={<InfoIcon className="h-4 w-4" />}>
       <dl className="space-y-1 text-sm">
         <Row label={t('app.name')} value={info ? `v${info.version}` : '…'} />
         <Row label={t('settings.about.built')} value={builtLabel} />
+        <Row label={t('settings.mode.title')} value={modeLabel} />
       </dl>
+      {cloud !== null && (
+        <p className="mt-2 text-xs text-muted">{cloud ? t('settings.mode.cloudHint') : t('settings.mode.selfHint')}</p>
+      )}
 
       <div className="mt-5 border-t border-line pt-4">
         <div className="mb-1 text-sm font-semibold text-ink">{t('settings.about.oss')}</div>

@@ -423,6 +423,19 @@ function migrations(): Migration[] {
         ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
       `,
     },
+    {
+      id: '023_ai_prompts',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS ai_prompts (
+          user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          key           TEXT NOT NULL,
+          system        TEXT NOT NULL,
+          user_template TEXT NOT NULL,
+          updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+          PRIMARY KEY (user_id, key)
+        );
+      `,
+    },
   ];
 }
 

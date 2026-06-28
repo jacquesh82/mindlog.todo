@@ -70,3 +70,29 @@ export async function noteStats(userId: string): Promise<NoteStatsRow> {
     storageBytes: Number(r.storage_bytes ?? 0),
   };
 }
+
+export interface TrendPoint {
+  date: string;
+  count: number;
+}
+
+/** Tasks completed per day over the last `days` days (gap-filled, oldest first). */
+export async function completedTrend(userId: string, days = 14): Promise<TrendPoint[]> {
+  const { rows } = await getPool().query<{ date: string; count: string }>(
+    /* sql */ `
+    SELECT to_char(d::date, 'YYYY-MM-DD') AS date, count(t.id) AS count
+      FROM generate_series(
+             date_trunc('day', now()) - make_interval(days => $2 - 1),
+             date_trunc('day', now()),
+             interval '1 day'
+           ) AS d
+      LEFT JOIN tasks t
+        ON t.user_id = $1
+       AND t.completed_at >= d
+       AND t.completed_at < d + interval '1 day'
+     GROUP BY d
+     ORDER BY d`,
+    [userId, days],
+  );
+  return rows.map((r) => ({ date: r.date, count: Number(r.count ?? 0) }));
+}

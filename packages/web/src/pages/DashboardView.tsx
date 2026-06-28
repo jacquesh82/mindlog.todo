@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { AreaChart, DonutChart, Gauge, type Slice } from '../components/charts';
 import { useI18n } from '../i18n';
 import type { DashboardStats } from '../types';
+
+function ChartCard({ title, children, wide }: { title: string; children: React.ReactNode; wide?: boolean }) {
+  return (
+    <div className={`rounded-xl border border-line bg-surface p-4 ${wide ? 'sm:col-span-2' : ''}`}>
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">{title}</h3>
+      <div className="flex items-center justify-center">{children}</div>
+    </div>
+  );
+}
 
 function Kpi({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
   return (
@@ -33,9 +43,40 @@ export function DashboardView() {
     ? Math.min(100, Math.round((s.notes.storageBytes / s.notes.storageQuota) * 100))
     : 0;
 
+  const priorityColors = ['--color-p1', '--color-p2', '--color-p3', '--color-p4'];
+  const prioritySlices: Slice[] = [
+    { label: 'P1', value: s.tasks.byPriority.p1, color: 'var(--color-p1)' },
+    { label: 'P2', value: s.tasks.byPriority.p2, color: 'var(--color-p2)' },
+    { label: 'P3', value: s.tasks.byPriority.p3, color: 'var(--color-p3)' },
+    { label: 'P4', value: s.tasks.byPriority.p4, color: 'var(--color-p4)' },
+  ];
+
   return (
     <div className="mx-auto max-w-4xl p-6">
       <h1 className="text-xl font-semibold text-ink">{t('nav.dashboard')}</h1>
+
+      <GroupTitle>{t('dash.charts')}</GroupTitle>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ChartCard title={t('dash.completionRate')}>
+          <Gauge value={s.tasks.completionRate} label={`${s.tasks.completed}/${s.tasks.total}`} />
+        </ChartCard>
+        <ChartCard title={t('dash.byPriority')}>
+          <div className="flex flex-col items-center gap-2">
+            <DonutChart data={prioritySlices} center={String(s.tasks.active)} sub={t('dash.active')} />
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs text-muted">
+              {prioritySlices.map((p, i) => (
+                <span key={p.label} className="flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: `var(${priorityColors[i]})` }} />
+                  {p.label} · {p.value}
+                </span>
+              ))}
+            </div>
+          </div>
+        </ChartCard>
+        <ChartCard title={t('dash.trend')} wide>
+          <AreaChart data={s.completedTrend} />
+        </ChartCard>
+      </div>
 
       <GroupTitle>{t('dash.tasks')}</GroupTitle>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

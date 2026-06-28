@@ -175,6 +175,7 @@ export interface DashboardStats {
     storageBytes: number;
     storageQuota: number;
   };
+  completedTrend: { date: string; count: number }[];
   karma: Karma | null;
 }
 

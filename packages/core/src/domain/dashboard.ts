@@ -18,5 +18,7 @@ export interface DashboardStats {
     storageBytes: number;
     storageQuota: number;
   };
+  /** Tasks completed per day over the last 14 days (for the trend chart). */
+  completedTrend: { date: string; count: number }[];
   karma: Karma | null;
 }

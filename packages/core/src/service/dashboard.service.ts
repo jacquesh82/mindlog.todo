@@ -4,9 +4,10 @@ import * as repo from '../repository/dashboard.repo.js';
 import { getKarma } from './karma.service.js';
 
 export async function getDashboard(userId: string): Promise<DashboardStats> {
-  const [tasks, notes, karma] = await Promise.all([
+  const [tasks, notes, completedTrend, karma] = await Promise.all([
     repo.taskStats(userId),
     repo.noteStats(userId),
+    repo.completedTrend(userId, 14),
     getKarma(userId).catch(() => null),
   ]);
 
@@ -27,6 +28,7 @@ export async function getDashboard(userId: string): Promise<DashboardStats> {
       storageBytes: notes.storageBytes,
       storageQuota: USER_NOTES_QUOTA,
     },
+    completedTrend,
     karma,
   };
 }

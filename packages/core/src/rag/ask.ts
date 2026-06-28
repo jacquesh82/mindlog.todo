@@ -49,6 +49,7 @@ export async function askTasks(userId: string, input: TaskAskInput): Promise<Tas
   if (ai.cloud) await aiLog.assertWithinLimit(userId);
 
   const result = await chatComplete({
+    provider: ai.provider,
     model: ai.model,
     apiKey: ai.apiKey,
     system: SYSTEM_PROMPT,

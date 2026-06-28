@@ -41,6 +41,9 @@ export type EmbeddingProviderId = 'local' | 'voyage' | 'openai' | 'fake';
 
 export const config = {
   port: intEnv('PORT', 8080),
+  // Deployed version (release tag) + build date, surfaced in Settings → About.
+  appVersion: env('APP_VERSION', 'dev'),
+  appBuildDate: env('APP_BUILD_DATE', ''),
   publicUrl: env('PUBLIC_URL', 'http://localhost:8080'),
   webUrl: env('WEB_URL', 'http://localhost:5173'),
   databaseUrl: env('DATABASE_URL', 'postgres://mindlog:mindlog@localhost:5432/mindlog'),
@@ -58,6 +61,7 @@ export const config = {
   // otherwise each user brings their own provider/model/key (no limit).
   // Falls back to the legacy ANTHROPIC_API_KEY / ASK_MODEL for compatibility.
   chat: {
+    provider: env('AI_CHAT_PROVIDER', 'anthropic'),
     model: env('AI_CHAT_MODEL', env('ASK_MODEL', 'claude-sonnet-4-6')),
     apiKey: env('AI_CHAT_API_KEY', env('ANTHROPIC_API_KEY')),
   },

@@ -38,7 +38,13 @@ export * from './domain/ai-settings.js';
 export * from './domain/dashboard.js';
 export * from './domain/karma.js';
 export * from './domain/user.js';
-export { CHAT_MODELS, type ChatModel, type ChatProviderId } from './llm/models.js';
+export {
+  CHAT_MODELS,
+  CHAT_PROVIDERS,
+  type ChatModel,
+  type ChatProvider,
+  type ChatProviderId,
+} from './llm/models.js';
 
 // Database lifecycle
 export { migrate } from './db/migrate.js';

@@ -1,10 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ServiceUnavailable } from '../errors.js';
-import { providerOf } from './models.js';
+import { providerOf, type ChatProviderId } from './models.js';
 
 // Unified chat-completion façade across LLM providers. Each call is one-shot
 // (system + single user message) and reports token usage so callers can log /
-// meter it. Provider is derived from the model id.
+// meter it.
 
 export interface ChatResult {
   text: string;
@@ -13,6 +13,8 @@ export interface ChatResult {
 }
 
 export interface ChatRequest {
+  /** Explicit provider; falls back to the model's known provider if omitted. */
+  provider?: ChatProviderId;
   model: string;
   apiKey: string;
   system: string;
@@ -20,9 +22,16 @@ export interface ChatRequest {
   maxTokens: number;
 }
 
+/** OpenAI-compatible chat-completions base URLs (OpenAI + Mistral). */
+const OPENAI_COMPATIBLE_BASE: Record<string, string> = {
+  openai: 'https://api.openai.com/v1',
+  mistral: 'https://api.mistral.ai/v1',
+};
+
 export async function chatComplete(req: ChatRequest): Promise<ChatResult> {
   if (!req.apiKey) throw ServiceUnavailable('No API key configured for the AI provider');
-  return providerOf(req.model) === 'openai' ? openai(req) : anthropic(req);
+  const provider = req.provider ?? providerOf(req.model);
+  return provider === 'anthropic' ? anthropic(req) : openaiCompatible(provider, req);
 }
 
 async function anthropic(req: ChatRequest): Promise<ChatResult> {
@@ -45,8 +54,9 @@ async function anthropic(req: ChatRequest): Promise<ChatResult> {
   };
 }
 
-async function openai(req: ChatRequest): Promise<ChatResult> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+async function openaiCompatible(provider: ChatProviderId, req: ChatRequest): Promise<ChatResult> {
+  const base = OPENAI_COMPATIBLE_BASE[provider] ?? OPENAI_COMPATIBLE_BASE.openai!;
+  const res = await fetch(`${base}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${req.apiKey}` },
     body: JSON.stringify({
@@ -59,7 +69,7 @@ async function openai(req: ChatRequest): Promise<ChatResult> {
     }),
   });
   if (!res.ok) {
-    throw ServiceUnavailable(`OpenAI chat failed: ${res.status} ${await res.text()}`);
+    throw ServiceUnavailable(`${provider} chat failed: ${res.status} ${await res.text()}`);
   }
   const json = (await res.json()) as {
     choices?: { message?: { content?: string } }[];

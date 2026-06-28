@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { Avatar } from '../components/Avatar';
 import { isTourDisabled, setTourDisabled, startTour } from '../tour';
+import { OSS_DEPENDENCIES } from '../oss';
 import type { AiLog, AiSettings, AiUsage, ApiKey, CalendarSource, User } from '../types';
 
 /** Inline stroke icon (Lucide geometry) — replaces emoji so icons theme + scale cleanly. */
@@ -67,6 +68,12 @@ const DownloadIcon = (p: IconProps) => (
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     <polyline points="7 10 12 15 17 10" />
     <line x1="12" x2="12" y1="15" y2="3" />
+  </Svg>
+);
+const InfoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4M12 8h.01" />
   </Svg>
 );
 const CalendarIcon = (p: IconProps) => (
@@ -277,13 +284,18 @@ function AiConfigCard() {
   const { t } = useI18n();
   const { toast } = useToast();
   const [s, setS] = useState<AiSettings | null>(null);
+  const [provider, setProvider] = useState('anthropic');
   const [model, setModel] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [custom, setCustom] = useState(false);
+  const [liveModels, setLiveModels] = useState<string[] | null>(null);
+  const [loadingModels, setLoadingModels] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     void api.getAiSettings().then((x) => {
       setS(x);
+      setProvider(x.provider);
       setModel(x.model);
     });
   }, []);
@@ -317,10 +329,43 @@ function AiConfigCard() {
     );
   }
 
+  const inputCls =
+    'w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand';
+
+  // Live-fetched models, else the static per-provider suggestions.
+  const suggestions =
+    liveModels && liveModels.length
+      ? liveModels
+      : s.models.filter((m) => m.provider === provider).map((m) => m.id);
+  const options = model && !suggestions.includes(model) ? [model, ...suggestions] : suggestions;
+
+  function changeProvider(p: string) {
+    setProvider(p);
+    setLiveModels(null);
+    if (!custom) {
+      const first = s!.models.find((m) => m.provider === p);
+      if (first) setModel(first.id);
+    }
+  }
+
+  async function loadModels() {
+    setLoadingModels(true);
+    try {
+      const { models } = await api.aiProviderModels(provider, apiKey.trim() || undefined);
+      setLiveModels(models);
+      if (models.length && !custom && !models.includes(model)) setModel(models[0]!);
+      toast(t('settings.ai.modelsLoaded', { n: String(models.length) }), 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Error', 'error');
+    } finally {
+      setLoadingModels(false);
+    }
+  }
+
   async function save() {
     setSaving(true);
     try {
-      const patch: { model?: string; apiKey?: string } = { model };
+      const patch: { provider?: string; model?: string; apiKey?: string } = { provider, model };
       if (apiKey.trim()) patch.apiKey = apiKey.trim();
       const next = await api.updateAiSettings(patch);
       setS(next);
@@ -342,18 +387,15 @@ function AiConfigCard() {
     }
   }
 
-  const inputCls =
-    'w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand';
-
   return (
     <Card title={t('settings.ai.title')} icon={<SparklesIcon className="h-4 w-4" />}>
       <p className="mb-4 text-sm text-muted">{t('settings.ai.byokHint')}</p>
 
-      <label className="mb-1 block text-sm text-muted">{t('settings.ai.model')}</label>
-      <select value={model} onChange={(e) => setModel(e.target.value)} className={inputCls}>
-        {s.models.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.label}
+      <label className="mb-1 block text-sm text-muted">{t('settings.ai.provider')}</label>
+      <select value={provider} onChange={(e) => changeProvider(e.target.value)} className={inputCls}>
+        {s.providers.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.label}
           </option>
         ))}
       </select>
@@ -374,6 +416,41 @@ function AiConfigCard() {
           </button>
         )}
       </div>
+
+      <div className="mb-1 mt-4 flex items-center justify-between">
+        <label className="text-sm text-muted">{t('settings.ai.model')}</label>
+        <div className="flex items-center gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => void loadModels()}
+            disabled={loadingModels}
+            className="text-brand hover:underline disabled:opacity-60"
+          >
+            {loadingModels ? t('common.loading') : t('settings.ai.loadModels')}
+          </button>
+          <label className="flex items-center gap-1 text-muted">
+            <input type="checkbox" checked={custom} onChange={(e) => setCustom(e.target.checked)} />
+            {t('settings.ai.customModel')}
+          </label>
+        </div>
+      </div>
+      {custom ? (
+        <input
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          placeholder={t('settings.ai.customModelPlaceholder')}
+          className={inputCls}
+        />
+      ) : (
+        <select value={model} onChange={(e) => setModel(e.target.value)} className={inputCls}>
+          {options.length === 0 && <option value="">{t('settings.ai.noModels')}</option>}
+          {options.map((id) => (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          ))}
+        </select>
+      )}
 
       <button
         type="button"
@@ -800,7 +877,7 @@ function MindlogIdCalendarCard() {
   );
 }
 
-type CategoryId = 'account' | 'appearance' | 'ai' | 'connections' | 'data';
+type CategoryId = 'account' | 'appearance' | 'ai' | 'connections' | 'data' | 'about';
 
 const CATEGORIES: { id: CategoryId; labelKey: string; icon: React.ReactNode }[] = [
   { id: 'account', labelKey: 'settings.cat.account', icon: <UserIcon /> },
@@ -808,6 +885,7 @@ const CATEGORIES: { id: CategoryId; labelKey: string; icon: React.ReactNode }[] 
   { id: 'ai', labelKey: 'settings.cat.ai', icon: <SparklesIcon /> },
   { id: 'connections', labelKey: 'settings.cat.connections', icon: <PlugIcon /> },
   { id: 'data', labelKey: 'settings.cat.data', icon: <DownloadIcon /> },
+  { id: 'about', labelKey: 'settings.cat.about', icon: <InfoIcon /> },
 ];
 
 export function SettingsPage() {
@@ -863,6 +941,7 @@ export function SettingsPage() {
             </>
           )}
           {active === 'data' && <DataExportCard />}
+          {active === 'about' && <AboutCard />}
         </div>
       </div>
     </div>
@@ -905,6 +984,49 @@ function DataExportCard() {
       >
         {busy ? t('common.loading') : t('settings.exportBtn')}
       </button>
+    </Card>
+  );
+}
+
+function AboutCard() {
+  const { t } = useI18n();
+  const [info, setInfo] = useState<{ version: string; buildDate: string } | null>(null);
+  useEffect(() => {
+    void api
+      .version()
+      .then(setInfo)
+      .catch(() => setInfo({ version: '—', buildDate: '' }));
+  }, []);
+
+  const built = info?.buildDate ? new Date(info.buildDate) : null;
+  const builtLabel = built && !Number.isNaN(built.getTime()) ? built.toLocaleString() : '—';
+
+  return (
+    <Card title={t('settings.cat.about')} icon={<InfoIcon className="h-4 w-4" />}>
+      <dl className="space-y-1 text-sm">
+        <Row label={t('app.name')} value={info ? `v${info.version}` : '…'} />
+        <Row label={t('settings.about.built')} value={builtLabel} />
+      </dl>
+
+      <div className="mt-5 border-t border-line pt-4">
+        <div className="mb-1 text-sm font-semibold text-ink">{t('settings.about.oss')}</div>
+        <p className="mb-3 text-xs text-muted">{t('settings.about.ossHint')}</p>
+        <ul className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+          {OSS_DEPENDENCIES.map((d) => (
+            <li key={d.name} className="flex items-center justify-between gap-2 text-sm">
+              <a
+                href={d.url}
+                target="_blank"
+                rel="noreferrer"
+                className="truncate text-ink hover:text-brand hover:underline"
+              >
+                {d.name}
+              </a>
+              <span className="shrink-0 rounded bg-line/60 px-1.5 text-xs text-muted">{d.license}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </Card>
   );
 }

@@ -217,11 +217,18 @@ export const api = {
   getAiSettings(): Promise<AiSettings> {
     return request<AiSettings>('/api/v1/ai/settings');
   },
-  updateAiSettings(patch: { model?: string; apiKey?: string }): Promise<AiSettings> {
+  updateAiSettings(patch: { provider?: string; model?: string; apiKey?: string }): Promise<AiSettings> {
     return request<AiSettings>('/api/v1/ai/settings', { method: 'PATCH', body: JSON.stringify(patch) });
   },
   deleteAiKey(): Promise<AiSettings> {
     return request<AiSettings>('/api/v1/ai/settings/key', { method: 'DELETE' });
+  },
+  /** Live model list from a provider (uses supplied or stored key). */
+  aiProviderModels(provider: string, apiKey?: string): Promise<{ models: string[] }> {
+    return request<{ models: string[] }>('/api/v1/ai/models', {
+      method: 'POST',
+      body: JSON.stringify({ provider, apiKey }),
+    });
   },
 
   // tasks
@@ -409,6 +416,11 @@ export const api = {
   // dashboard KPIs
   dashboard(): Promise<DashboardStats> {
     return request<DashboardStats>('/api/v1/dashboard');
+  },
+
+  // deployed version (Settings → About)
+  version(): Promise<{ version: string; buildDate: string }> {
+    return request<{ version: string; buildDate: string }>('/api/v1/version');
   },
 
   // AI activity

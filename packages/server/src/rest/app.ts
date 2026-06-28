@@ -1,4 +1,4 @@
-import { getPool } from '@mindlog/core';
+import { config, getPool } from '@mindlog/core';
 import cors from 'cors';
 import express, { type Express } from 'express';
 import swaggerUi from 'swagger-ui-express';
@@ -51,6 +51,11 @@ export function createApp(): Express {
 
   // OAuth 2.1 authorization server + discovery (public, unauthenticated).
   app.use(oauthRouter);
+
+  // Public version endpoint (Settings → About). Under /api/v1 so the edge proxies it.
+  app.get('/api/v1/version', (_req, res) =>
+    res.json({ version: config.appVersion, buildDate: config.appBuildDate }),
+  );
 
   // REST API. `authenticate` only populates req.userId; routers enforce auth.
   app.use('/api/v1', authenticate);

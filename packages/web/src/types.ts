@@ -150,10 +150,17 @@ export interface AiCredits {
   resetAt: string;
 }
 
+export interface ChatProviderOption {
+  id: string;
+  label: string;
+}
+
 export interface AiSettings {
   cloudHosted: boolean;
+  provider: string;
   model: string;
   hasKey: boolean;
+  providers: ChatProviderOption[];
   models: ChatModelOption[];
   credits: AiCredits | null;
 }

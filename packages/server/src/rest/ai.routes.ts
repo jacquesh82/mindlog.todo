@@ -1,4 +1,9 @@
-import { aiLogService, aiService, aiSettingsUpdateSchema } from '@mindlog/core';
+import {
+  aiLogService,
+  aiModelsQuerySchema,
+  aiService,
+  aiSettingsUpdateSchema,
+} from '@mindlog/core';
 import { Router } from 'express';
 import { requireAuth, userId } from '../middleware/auth.js';
 
@@ -27,4 +32,10 @@ aiRouter.patch('/settings', async (req, res) => {
 
 aiRouter.delete('/settings/key', async (req, res) => {
   res.json(await aiService.deleteKey(userId(req)));
+});
+
+// Live model list from the provider (uses the supplied or stored key).
+aiRouter.post('/models', async (req, res) => {
+  const { provider, apiKey } = aiModelsQuerySchema.parse(req.body);
+  res.json({ models: await aiService.listModels(userId(req), provider, apiKey) });
 });

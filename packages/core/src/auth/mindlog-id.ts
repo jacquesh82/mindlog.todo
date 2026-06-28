@@ -26,6 +26,8 @@ export interface MindlogIdProfile extends MindlogIdTokens {
   // the IdP, so it may be absent. The caller then asks the user for one.
   email: string | null;
   name?: string | null;
+  /** Avatar URL from the OIDC `picture` claim, if the IdP exposes one. */
+  picture?: string | null;
 }
 
 /** Optional scope that grants read access to the user's mindlog id agenda. */
@@ -109,7 +111,12 @@ export async function exchangeMindlogIdCode(code: string): Promise<MindlogIdProf
     headers: { authorization: `Bearer ${tokens.access_token}` },
   });
   if (!userRes.ok) throw new Error(`mindlog id userinfo failed (${userRes.status})`);
-  const profile = (await userRes.json()) as { sub?: string; email?: string; name?: string };
+  const profile = (await userRes.json()) as {
+    sub?: string;
+    email?: string;
+    name?: string;
+    picture?: string;
+  };
   // sub is the stable identifier and is always present; email is optional (the
   // caller collects one from the user when it's missing).
   if (!profile.sub) throw new Error('mindlog id profile missing sub');
@@ -117,6 +124,7 @@ export async function exchangeMindlogIdCode(code: string): Promise<MindlogIdProf
     sub: profile.sub,
     email: profile.email ?? null,
     name: profile.name ?? null,
+    picture: profile.picture ?? null,
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token ?? '',
     expiresIn: tokens.expires_in ?? 3600,

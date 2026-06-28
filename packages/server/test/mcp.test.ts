@@ -42,9 +42,27 @@ describe('mcp tools', () => {
         'task_delete',
         'task_get',
         'task_list',
+        'task_query',
         'task_quick_add',
         'task_search',
         'task_update',
+        'project_list',
+        'project_create',
+        'project_update',
+        'project_delete',
+        'section_list',
+        'section_create',
+        'section_update',
+        'section_delete',
+        'label_list',
+        'label_create',
+        'label_update',
+        'label_delete',
+        'filter_list',
+        'filter_create',
+        'filter_update',
+        'filter_delete',
+        'filter_run',
       ].sort(),
     );
     await client.close();
@@ -75,6 +93,53 @@ describe('mcp tools', () => {
 
     const empty = parse(await client.callTool({ name: 'task_list', arguments: {} }));
     expect(empty).toHaveLength(0);
+    await client.close();
+  });
+
+  it('manages projects, sections, labels and filters', async () => {
+    const { client } = await connectFor('mplf@ex.com');
+
+    // Project + section
+    const project = parse(
+      await client.callTool({ name: 'project_create', arguments: { name: 'Launch' } }),
+    );
+    expect(project.name).toBe('Launch');
+    const projects = parse(await client.callTool({ name: 'project_list', arguments: {} }));
+    expect(projects.some((p: { id: string }) => p.id === project.id)).toBe(true);
+    const section = parse(
+      await client.callTool({
+        name: 'section_create',
+        arguments: { projectId: project.id, name: 'Todo' },
+      }),
+    );
+    expect(section.name).toBe('Todo');
+    expect(parse(await client.callTool({ name: 'section_list', arguments: { projectId: project.id } }))).toHaveLength(1);
+
+    // Label
+    const label = parse(
+      await client.callTool({ name: 'label_create', arguments: { name: 'urgent' } }),
+    );
+    expect(label.name).toBe('urgent');
+    expect(parse(await client.callTool({ name: 'label_list', arguments: {} }))).toHaveLength(1);
+
+    // Filter create + run
+    const filter = parse(
+      await client.callTool({ name: 'filter_create', arguments: { name: 'P1s', query: 'p1' } }),
+    );
+    expect(filter.query).toBe('p1');
+    await client.callTool({
+      name: 'task_create',
+      arguments: { title: 'Urgent thing', priority: 1, projectId: project.id },
+    });
+    const hits = parse(await client.callTool({ name: 'filter_run', arguments: { id: filter.id } }));
+    expect(hits.length).toBe(1);
+    const adHoc = parse(await client.callTool({ name: 'task_query', arguments: { query: 'p1' } }));
+    expect(adHoc.length).toBe(1);
+
+    // Cleanup deletes
+    expect(parse(await client.callTool({ name: 'filter_delete', arguments: { id: filter.id } })).deleted).toBe(true);
+    expect(parse(await client.callTool({ name: 'label_delete', arguments: { id: label.id } })).deleted).toBe(true);
+    expect(parse(await client.callTool({ name: 'project_delete', arguments: { id: project.id } })).deleted).toBe(true);
     await client.close();
   });
 

@@ -48,10 +48,26 @@ export interface User {
   id: string;
   email: string;
   displayName: string | null;
+  avatarUrl: string | null;
   googleSub: string | null;
   mindlogIdSub: string | null;
   createdAt: string;
 }
+
+// Local profile edits (display name + avatar). Avatar accepts an http(s) URL or
+// a small data: URL (local upload), capped to keep the users row reasonable.
+export const profileUpdateSchema = z.object({
+  displayName: z.string().max(200).nullable().optional(),
+  avatarUrl: z
+    .string()
+    .max(1_500_000)
+    .refine((v) => /^https?:\/\//.test(v) || /^data:image\//.test(v), {
+      message: 'avatarUrl must be an http(s) URL or a data:image/ URL',
+    })
+    .nullable()
+    .optional(),
+});
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 
 export interface ApiKey {
   id: string;

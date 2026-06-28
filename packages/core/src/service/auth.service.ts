@@ -62,6 +62,7 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     id: row.id,
     email: row.email,
     displayName: row.display_name,
+    avatarUrl: row.avatar_url,
     googleSub: row.google_sub,
     mindlogIdSub: row.mindlog_id_sub,
     createdAt: row.created_at.toISOString(),
@@ -184,6 +185,7 @@ export async function loginWithMindlogId(code: string): Promise<MindlogIdLoginRe
     sub: profile.sub,
     email: profile.email,
     displayName: profile.name,
+    avatarUrl: profile.picture,
   });
   await projectRepo.ensureInbox(user.id);
   await storeMindlogIdConnection(user.id, profile);
@@ -237,6 +239,16 @@ export function disconnectMindlogId(userId: string): Promise<boolean> {
 
 export function getUser(userId: string): Promise<User | null> {
   return userRepo.findById(userId);
+}
+
+/** Update the user's editable profile (display name, avatar URL/data URL). */
+export async function updateProfile(
+  userId: string,
+  patch: { displayName?: string | null; avatarUrl?: string | null },
+): Promise<User> {
+  const user = await userRepo.updateProfile(userId, patch);
+  if (!user) throw Unauthorized('User not found');
+  return user;
 }
 
 export async function createApiKey(

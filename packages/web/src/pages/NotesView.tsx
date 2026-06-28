@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
@@ -138,9 +138,18 @@ export function NotesView() {
     setSaved(false);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      await api.updatePage(next.id, { title: next.title, content: next.content });
-      setSaved(true);
-      if (activeNb) reloadPages(activeNb);
+      try {
+        await api.updatePage(next.id, { title: next.title, content: next.content });
+        setSaved(true);
+        if (activeNb) reloadPages(activeNb);
+      } catch (e) {
+        toast(
+          e instanceof ApiError && e.status === 413
+            ? t('notes.storageLimitReached')
+            : t('notes.saveFailed'),
+          'error',
+        );
+      }
     }, 600);
   }
 

@@ -1,5 +1,6 @@
 import type {
   AiLog,
+  AiSettings,
   AiUsage,
   ApiKey,
   Attachment,
@@ -10,6 +11,7 @@ import type {
   NotePageSummary,
   AskResult,
   AuthResult,
+  DashboardStats,
   Filter,
   Karma,
   Label,
@@ -186,6 +188,14 @@ export const api = {
     const base = /^https?:\/\//.test(API) ? API : `${window.location.origin}${API}`;
     return `${base.replace(/\/$/, '')}/mcp`;
   },
+  /** Pre-register a confidential OAuth client for the Claude connector. */
+  createMcpOAuthClient(): Promise<{
+    client_id: string;
+    client_secret?: string;
+    redirect_uris: string[];
+  }> {
+    return request('/api/v1/oauth/clients', { method: 'POST' });
+  },
   /** Approve or deny an OAuth authorization request; returns the redirect URL. */
   authorizeConsent(
     params: Record<string, string>,
@@ -198,6 +208,20 @@ export const api = {
   },
   me(): Promise<User> {
     return request<User>('/api/v1/me');
+  },
+  updateProfile(patch: { displayName?: string | null; avatarUrl?: string | null }): Promise<User> {
+    return request<User>('/api/v1/me', { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+
+  // AI configuration (model + own key in self-hosted; credits in cloud-hosted)
+  getAiSettings(): Promise<AiSettings> {
+    return request<AiSettings>('/api/v1/ai/settings');
+  },
+  updateAiSettings(patch: { model?: string; apiKey?: string }): Promise<AiSettings> {
+    return request<AiSettings>('/api/v1/ai/settings', { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  deleteAiKey(): Promise<AiSettings> {
+    return request<AiSettings>('/api/v1/ai/settings/key', { method: 'DELETE' });
   },
 
   // tasks
@@ -380,6 +404,11 @@ export const api = {
   // karma
   getKarma(): Promise<Karma> {
     return request<Karma>('/api/v1/karma');
+  },
+
+  // dashboard KPIs
+  dashboard(): Promise<DashboardStats> {
+    return request<DashboardStats>('/api/v1/dashboard');
   },
 
   // AI activity

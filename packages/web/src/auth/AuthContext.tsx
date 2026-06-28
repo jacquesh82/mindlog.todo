@@ -8,6 +8,8 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-fetch the current user (e.g. after a profile/avatar update). */
+  refreshUser: () => Promise<void>;
   /** True when a mindlog-id sign-in needs an email before the account can be created. */
   mindlogIdNeedsEmail: boolean;
   completeMindlogId: (email: string) => Promise<void>;
@@ -77,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await api.logout();
       setUser(null);
     },
+    refreshUser: loadUser,
     mindlogIdNeedsEmail: pendingToken !== null,
     completeMindlogId: async (email) => {
       if (!pendingToken) return;

@@ -147,6 +147,21 @@ export async function countPages(userId: string, notebookId: string): Promise<nu
   return Number(rows[0]?.n ?? 0);
 }
 
+/** Total UTF-8 bytes of all the user's note content, optionally excluding one page. */
+export async function userContentBytes(userId: string, excludePageId?: string): Promise<number> {
+  const params: unknown[] = [userId];
+  let where = 'user_id = $1';
+  if (excludePageId) {
+    params.push(excludePageId);
+    where += ` AND id <> $${params.length}`;
+  }
+  const { rows } = await getPool().query<{ total: string | null }>(
+    `SELECT COALESCE(sum(octet_length(content)), 0) AS total FROM note_pages WHERE ${where}`,
+    params,
+  );
+  return Number(rows[0]?.total ?? 0);
+}
+
 export async function getPage(userId: string, id: string): Promise<NotePage | null> {
   const { rows } = await getPool().query<PageRow>(
     `SELECT ${PAGE_COLS} FROM note_pages WHERE user_id = $1 AND id = $2`,

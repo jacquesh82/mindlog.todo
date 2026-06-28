@@ -5,10 +5,50 @@ import { useI18n, type Lang } from '../i18n';
 import { useToast } from '../toast';
 import type { Filter, Karma, Label, Project } from '../types';
 import type { View } from '../app/view';
+import { Avatar } from './Avatar';
 import { FilterModal } from './FilterModal';
 import { LabelModal } from './LabelModal';
 import { ProjectModal } from './ProjectModal';
 import { FunnelIcon, HashIcon, TagIcon } from './SidebarIcons';
+
+/** Settings (gear) icon. */
+function SettingsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+/** Log-out (door + arrow) icon. */
+function LogoutIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden="true"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
 
 interface Props {
   projects: Project[];
@@ -27,6 +67,7 @@ function Item({
   label,
   count,
   onClick,
+  tour,
 }: {
   active: boolean;
   icon?: string;
@@ -35,10 +76,13 @@ function Item({
   label: string;
   count?: number;
   onClick: () => void;
+  /** Optional `data-tour` anchor for the guided tour. */
+  tour?: string;
 }) {
   return (
     <button
       onClick={onClick}
+      data-tour={tour}
       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition ${
         active ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'
       }`}
@@ -102,8 +146,14 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-sidebar">
       <div className="flex items-center justify-between px-4 py-3">
-        <span className="flex items-center gap-2 font-semibold text-brand">
-          <img src={`${import.meta.env.BASE_URL}milo.svg`} alt="Milo" className="h-6 w-6" />
+        <span data-tour="welcome" className="flex items-center gap-2 font-semibold text-brand">
+          {/* Milo mascot — enlarged so its (brand) color reads clearly; a future
+              `skin` prop can swap the asset. */}
+          <img
+            src={`${import.meta.env.BASE_URL}milo.svg`}
+            alt="Milo"
+            className="h-9 w-9 shrink-0"
+          />
           {t('app.name')}
         </span>
         <div className="flex items-center gap-2 text-sm">
@@ -114,16 +164,14 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
           >
             {lang.toUpperCase()}
           </button>
-          <button className="text-muted hover:text-ink" onClick={() => onSelect({ kind: 'settings' })} title="Settings">
-            ⚙
-          </button>
         </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-2 pb-4">
         {/* Cross-cutting tools (not tied to tasks) sit at the very top. */}
-        <Item active={is('search')} icon="🔎" label={t('nav.search')} onClick={() => onSelect({ kind: 'search' })} />
-        <Item active={is('notes')} icon="📓" label={t('nav.notes')} onClick={() => onSelect({ kind: 'notes' })} />
+        <Item tour="search" active={is('search')} icon="🔎" label={t('nav.search')} onClick={() => onSelect({ kind: 'search' })} />
+        <Item tour="notes" active={is('notes')} icon="📓" label={t('nav.notes')} onClick={() => onSelect({ kind: 'notes' })} />
+        <Item tour="dashboard" active={is('dashboard')} icon="📊" label={t('nav.dashboard')} onClick={() => onSelect({ kind: 'dashboard' })} />
 
         <Section title={t('nav.tasks')}>
           <Item active={is('today')} icon="📆" label={t('nav.today')} onClick={() => onSelect({ kind: 'today' })} />
@@ -131,7 +179,6 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
           {inbox && (
             <Item active={is('inbox')} icon="📥" label={t('nav.inbox')} onClick={() => onSelect({ kind: 'inbox', id: inbox.id })} />
           )}
-          <Item active={is('completed')} icon="✓" label={t('nav.completed')} onClick={() => onSelect({ kind: 'completed' })} />
         </Section>
 
         {hasFavorites && (
@@ -244,10 +291,27 @@ export function Sidebar({ projects, labels, filters, karma, view, onSelect, onRe
           </div>
         </div>
       )}
-      <div className="border-t border-line px-4 py-2 text-xs text-muted">
-        <div className="truncate">{user?.displayName ?? user?.email}</div>
-        <button className="mt-1 hover:text-brand" onClick={() => void logout()}>
-          {t('common.logout')}
+      <div className="flex items-center gap-2 border-t border-line px-4 py-2 text-xs text-muted">
+        <Avatar name={user?.displayName ?? user?.email} avatarUrl={user?.avatarUrl} size={28} />
+        <div className="min-w-0 flex-1 truncate text-ink">{user?.displayName ?? user?.email}</div>
+        <button
+          type="button"
+          data-tour="settings"
+          className="rounded p-1 text-muted hover:bg-line/60 hover:text-brand"
+          title={t('nav.settings')}
+          aria-label={t('nav.settings')}
+          onClick={() => onSelect({ kind: 'settings' })}
+        >
+          <SettingsIcon />
+        </button>
+        <button
+          type="button"
+          className="rounded p-1 text-muted hover:bg-line/60 hover:text-brand"
+          title={t('common.logout')}
+          aria-label={t('common.logout')}
+          onClick={() => void logout()}
+        >
+          <LogoutIcon />
         </button>
       </div>
 

@@ -53,6 +53,19 @@ export const config = {
   anthropicApiKey: env('ANTHROPIC_API_KEY'),
   askModel: env('ASK_MODEL', 'claude-sonnet-4-6'),
 
+  // Chat LLM ("ask" RAG). When `apiKey` is set in the server env the deployment
+  // is CLOUD-HOSTED (shared key) and per-user AI credits are counted + limited;
+  // otherwise each user brings their own provider/model/key (no limit).
+  // Falls back to the legacy ANTHROPIC_API_KEY / ASK_MODEL for compatibility.
+  chat: {
+    model: env('AI_CHAT_MODEL', env('ASK_MODEL', 'claude-sonnet-4-6')),
+    apiKey: env('AI_CHAT_API_KEY', env('ANTHROPIC_API_KEY')),
+  },
+  // Monthly per-user token budget enforced in cloud-hosted mode.
+  aiMonthlyTokenLimit: intEnv('AI_MONTHLY_TOKEN_LIMIT', 1_000_000),
+  // Master key for encrypting per-user secrets at rest (their own LLM API key).
+  encryptionKey: env('ENCRYPTION_KEY'),
+
   jwtSecret: env('JWT_SECRET', 'dev-only-change-me'),
   jwtAccessTtl: env('JWT_ACCESS_TTL', '15m'),
   jwtRefreshTtl: env('JWT_REFRESH_TTL', '30d'),
@@ -96,4 +109,13 @@ export function mindlogIdEnabled(): boolean {
 
 export function mailEnabled(): boolean {
   return Boolean(config.smtp.host);
+}
+
+/**
+ * Cloud-hosted mode: a chat LLM key is present in the server env, so the app
+ * uses a shared key and meters per-user AI credits. Otherwise it's self-hosted
+ * / BYOK and each user configures their own provider + key in Settings.
+ */
+export function cloudHosted(): boolean {
+  return Boolean(config.chat.apiKey);
 }

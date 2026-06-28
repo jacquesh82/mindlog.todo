@@ -1,4 +1,10 @@
-import { apiKeyCreateSchema, authService, exportService, NotFound } from '@mindlog/core';
+import {
+  apiKeyCreateSchema,
+  authService,
+  exportService,
+  NotFound,
+  profileUpdateSchema,
+} from '@mindlog/core';
 import { Router } from 'express';
 import { requireAuth, userId } from '../middleware/auth.js';
 
@@ -9,6 +15,11 @@ accountRouter.get('/me', async (req, res) => {
   const user = await authService.getUser(userId(req));
   if (!user) throw NotFound('User not found');
   res.json(user);
+});
+
+// Update the user's editable profile (display name, avatar).
+accountRouter.patch('/me', async (req, res) => {
+  res.json(await authService.updateProfile(userId(req), profileUpdateSchema.parse(req.body)));
 });
 
 // Full JSON export of every piece of the user's data (backup / portability).

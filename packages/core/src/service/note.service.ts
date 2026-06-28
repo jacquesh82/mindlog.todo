@@ -1,5 +1,6 @@
 import {
   notePageText,
+  USER_NOTES_QUOTA,
   type Notebook,
   type NotebookCreateInput,
   type NotebookUpdateInput,
@@ -9,9 +10,29 @@ import {
   type PageCreateInput,
   type PageUpdateInput,
 } from '../domain/note.js';
+import { cloudHosted } from '../config.js';
 import { embedOne } from '../embeddings/provider.js';
-import { BadRequest, NotFound } from '../errors.js';
+import { BadRequest, NotFound, QuotaExceeded } from '../errors.js';
 import * as repo from '../repository/note.repo.js';
+
+/**
+ * Reject when writing `content` would push the user's total notes content past
+ * the 100 MB quota. `excludePageId` omits the page being overwritten so an edit
+ * is measured as a replacement, not an addition.
+ */
+async function assertWithinNotesQuota(
+  userId: string,
+  content: string,
+  excludePageId?: string,
+): Promise<void> {
+  // The 100 MB cap protects a self-hosted instance's database; in cloud-hosted
+  // mode storage is managed separately, so no hard per-user cap is enforced.
+  if (cloudHosted()) return;
+  const others = await repo.userContentBytes(userId, excludePageId);
+  if (others + Buffer.byteLength(content, 'utf8') > USER_NOTES_QUOTA) {
+    throw QuotaExceeded('Notes storage limit reached (100 MB per account)');
+  }
+}
 
 /** Re-embed a page for RAG, or clear its embedding when not opted in. */
 async function syncEmbedding(page: NotePage): Promise<void> {
@@ -52,8 +73,10 @@ export function listPages(userId: string, notebookId: string): Promise<NotePageS
 export async function createPage(userId: string, notebookId: string, input: PageCreateInput): Promise<NotePage> {
   const notebook = await repo.getNotebook(userId, notebookId);
   if (!notebook) throw BadRequest('notebookId does not reference an existing notebook');
+  const content = input.content ?? '';
+  if (content) await assertWithinNotesQuota(userId, content);
   const position = await repo.countPages(userId, notebookId);
-  return repo.insertPage(userId, notebookId, input.title ?? 'Untitled', input.content ?? '', position);
+  return repo.insertPage(userId, notebookId, input.title ?? 'Untitled', content, position);
 }
 
 export async function getPage(userId: string, id: string): Promise<NotePage> {
@@ -63,6 +86,7 @@ export async function getPage(userId: string, id: string): Promise<NotePage> {
 }
 
 export async function updatePage(userId: string, id: string, patch: PageUpdateInput): Promise<NotePage> {
+  if (patch.content !== undefined) await assertWithinNotesQuota(userId, patch.content, id);
   const updated = await repo.updatePage(userId, id, patch);
   if (!updated) throw NotFound('Page not found');
   // Re-embed when content/title changed or the RAG flag was touched.

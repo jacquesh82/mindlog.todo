@@ -86,3 +86,13 @@ export async function usage(userId: string): Promise<AiUsage> {
     totalTokens: inputTokens + outputTokens,
   };
 }
+
+/** Total tokens (input+output) consumed by a user since the given instant. */
+export async function tokensSince(userId: string, since: Date): Promise<number> {
+  const { rows } = await getPool().query<{ total: string | null }>(
+    `SELECT COALESCE(sum(input_tokens + output_tokens), 0) AS total
+       FROM ai_logs WHERE user_id = $1 AND created_at >= $2`,
+    [userId, since],
+  );
+  return Number(rows[0]?.total ?? 0);
+}

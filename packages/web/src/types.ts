@@ -92,6 +92,7 @@ export interface User {
   id: string;
   email: string;
   displayName: string | null;
+  avatarUrl: string | null;
   googleSub: string | null;
   createdAt: string;
 }
@@ -135,6 +136,46 @@ export interface AiUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+}
+
+export interface ChatModelOption {
+  id: string;
+  provider: string;
+  label: string;
+}
+
+export interface AiCredits {
+  usedTokens: number;
+  limitTokens: number;
+  resetAt: string;
+}
+
+export interface AiSettings {
+  cloudHosted: boolean;
+  model: string;
+  hasKey: boolean;
+  models: ChatModelOption[];
+  credits: AiCredits | null;
+}
+
+export interface DashboardStats {
+  tasks: {
+    total: number;
+    active: number;
+    completed: number;
+    overdue: number;
+    dueToday: number;
+    completedThisWeek: number;
+    completionRate: number;
+    byPriority: { p1: number; p2: number; p3: number; p4: number };
+  };
+  notes: {
+    notebooks: number;
+    pages: number;
+    storageBytes: number;
+    storageQuota: number;
+  };
+  karma: Karma | null;
 }
 
 export interface Attachment {

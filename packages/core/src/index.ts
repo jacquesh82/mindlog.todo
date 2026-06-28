@@ -3,12 +3,23 @@
 
 export {
   config,
+  cloudHosted,
   googleEnabled,
   mindlogIdEnabled,
   mailEnabled,
   type EmbeddingProviderId,
 } from './config.js';
-export { AppError, BadRequest, Conflict, NotFound, ServiceUnavailable, Unauthorized } from './errors.js';
+export {
+  AppError,
+  BadRequest,
+  Conflict,
+  Forbidden,
+  NotFound,
+  PaymentRequired,
+  QuotaExceeded,
+  ServiceUnavailable,
+  Unauthorized,
+} from './errors.js';
 
 // Domain types & validation schemas
 export * from './domain/task.js';
@@ -23,8 +34,11 @@ export * from './domain/attachment.js';
 export * from './domain/calendar.js';
 export * from './domain/note.js';
 export * from './domain/ai-log.js';
+export * from './domain/ai-settings.js';
+export * from './domain/dashboard.js';
 export * from './domain/karma.js';
 export * from './domain/user.js';
+export { CHAT_MODELS, type ChatModel, type ChatProviderId } from './llm/models.js';
 
 // Database lifecycle
 export { migrate } from './db/migrate.js';
@@ -48,6 +62,8 @@ export * as attachmentService from './service/attachment.service.js';
 export * as calendarService from './service/calendar.service.js';
 export * as noteService from './service/note.service.js';
 export * as authService from './service/auth.service.js';
+export * as aiService from './service/ai.service.js';
+export * as dashboardService from './service/dashboard.service.js';
 export * as oauthService from './service/oauth.service.js';
 export { OAuthError } from './service/oauth.service.js';
 export * as exportService from './service/export.service.js';

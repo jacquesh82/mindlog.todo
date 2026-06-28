@@ -17,6 +17,9 @@ export type NotebookUpdateInput = z.infer<typeof notebookUpdateSchema>;
 // Content can embed pasted images as base64 data URLs, so allow a generous size.
 const PAGE_CONTENT_MAX = 12_000_000;
 
+/** Total notes content allowed per user across all pages (100 MB, UTF-8 bytes). */
+export const USER_NOTES_QUOTA = 100 * 1024 * 1024;
+
 export const pageCreateSchema = z.object({
   title: z.string().max(300).optional(),
   content: z.string().max(PAGE_CONTENT_MAX).optional(),

@@ -3,8 +3,18 @@ import { api } from '../api/client';
 import { useI18n, LANGS, type Lang } from '../i18n';
 import { useDialog } from '../dialog';
 import { useToast } from '../toast';
-import { applyTheme, getInitialTheme, type Theme } from '../theme';
-import type { AiLog, AiUsage, ApiKey, CalendarSource, User } from '../types';
+import {
+  ACCENT_PRESETS,
+  applyAccent,
+  applyTheme,
+  getInitialAccent,
+  getInitialTheme,
+  type Theme,
+} from '../theme';
+import { useAuth } from '../auth/AuthContext';
+import { Avatar } from '../components/Avatar';
+import { isTourDisabled, setTourDisabled, startTour } from '../tour';
+import type { AiLog, AiSettings, AiUsage, ApiKey, CalendarSource, User } from '../types';
 
 /** Inline stroke icon (Lucide geometry) — replaces emoji so icons theme + scale cleanly. */
 function Svg({ className, children }: { className?: string; children: React.ReactNode }) {
@@ -142,10 +152,13 @@ function CopyField({
 
 function McpConnectorCard() {
   const { t } = useI18n();
+  const { toast } = useToast();
   const dialog = useDialog();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [name, setName] = useState('');
   const [created, setCreated] = useState<ApiKey | null>(null);
+  const [oauth, setOauth] = useState<{ clientId: string; clientSecret?: string } | null>(null);
+  const [genning, setGenning] = useState(false);
 
   const reload = () => void api.listApiKeys().then(setKeys);
   useEffect(reload, []);
@@ -156,6 +169,18 @@ function McpConnectorCard() {
     reload();
   }
 
+  async function generateOAuth() {
+    setGenning(true);
+    try {
+      const c = await api.createMcpOAuthClient();
+      setOauth({ clientId: c.client_id, clientSecret: c.client_secret });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Error', 'error');
+    } finally {
+      setGenning(false);
+    }
+  }
+
   return (
     <Card title={t('settings.mcp')} icon={<PlugIcon className="h-4 w-4" />}>
       <p className="mb-4 text-sm text-muted">{t('settings.mcpHint')}</p>
@@ -163,8 +188,31 @@ function McpConnectorCard() {
       <div className="space-y-3">
         <CopyField label={t('settings.mcpName')} value="mindlog.todo" />
         <CopyField label={t('settings.mcpUrl')} value={api.mcpUrl()} mono />
-        <CopyField label={t('settings.mcpClientId')} value="" empty={t('settings.mcpEmpty')} />
-        <CopyField label={t('settings.mcpClientSecret')} value="" empty={t('settings.mcpEmpty')} />
+        <CopyField
+          label={t('settings.mcpClientId')}
+          value={oauth?.clientId ?? ''}
+          empty={t('settings.mcpEmpty')}
+          mono
+        />
+        <CopyField
+          label={t('settings.mcpClientSecret')}
+          value={oauth?.clientSecret ?? ''}
+          empty={t('settings.mcpEmpty')}
+          mono
+        />
+        <div>
+          <button
+            type="button"
+            onClick={() => void generateOAuth()}
+            disabled={genning}
+            className="rounded-md border border-line px-3 py-2 text-sm font-medium text-ink hover:border-brand disabled:opacity-60"
+          >
+            {t('settings.mcpGenOAuth')}
+          </button>
+          <p className="mt-1 text-xs text-muted">
+            {oauth?.clientSecret ? t('settings.mcpGenOAuthOnce') : t('settings.mcpGenOAuthHint')}
+          </p>
+        </div>
       </div>
 
       <div className="mt-5 border-t border-line pt-4">
@@ -221,6 +269,120 @@ function McpConnectorCard() {
           ))}
         </ul>
       </div>
+    </Card>
+  );
+}
+
+function AiConfigCard() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [s, setS] = useState<AiSettings | null>(null);
+  const [model, setModel] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void api.getAiSettings().then((x) => {
+      setS(x);
+      setModel(x.model);
+    });
+  }, []);
+
+  if (!s) return null;
+
+  // Cloud-hosted: the user has no control — just show their credit balance.
+  if (s.cloudHosted) {
+    const c = s.credits;
+    const pct = c && c.limitTokens > 0 ? Math.min(100, Math.round((c.usedTokens / c.limitTokens) * 100)) : 0;
+    return (
+      <Card title={t('settings.ai.title')} icon={<SparklesIcon className="h-4 w-4" />}>
+        <p className="mb-4 text-sm text-muted">{t('settings.ai.cloudManaged')}</p>
+        {c && (
+          <>
+            <div className="mb-1 flex justify-between text-sm">
+              <span className="text-muted">{t('settings.ai.creditsUsed')}</span>
+              <span className="text-ink">
+                {c.usedTokens.toLocaleString()} / {c.limitTokens.toLocaleString()} tok
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded bg-line">
+              <div className="h-full bg-brand" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              {t('settings.ai.creditsReset')} {new Date(c.resetAt).toLocaleDateString()}
+            </p>
+          </>
+        )}
+      </Card>
+    );
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const patch: { model?: string; apiKey?: string } = { model };
+      if (apiKey.trim()) patch.apiKey = apiKey.trim();
+      const next = await api.updateAiSettings(patch);
+      setS(next);
+      setApiKey('');
+      toast(t('settings.ai.saved'), 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Error', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeKey() {
+    try {
+      setS(await api.deleteAiKey());
+      toast(t('settings.ai.keyRemoved'), 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Error', 'error');
+    }
+  }
+
+  const inputCls =
+    'w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand';
+
+  return (
+    <Card title={t('settings.ai.title')} icon={<SparklesIcon className="h-4 w-4" />}>
+      <p className="mb-4 text-sm text-muted">{t('settings.ai.byokHint')}</p>
+
+      <label className="mb-1 block text-sm text-muted">{t('settings.ai.model')}</label>
+      <select value={model} onChange={(e) => setModel(e.target.value)} className={inputCls}>
+        {s.models.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.label}
+          </option>
+        ))}
+      </select>
+
+      <label className="mb-1 mt-4 block text-sm text-muted">{t('settings.ai.apiKey')}</label>
+      <input
+        type="password"
+        value={apiKey}
+        onChange={(e) => setApiKey(e.target.value)}
+        placeholder={s.hasKey ? '••••••••••••' : t('settings.ai.apiKeyPlaceholder')}
+        className={inputCls}
+      />
+      <div className="mt-1.5 flex items-center gap-3 text-xs">
+        {s.hasKey && <span className="text-brand">✓ {t('settings.ai.keySet')}</span>}
+        {s.hasKey && (
+          <button type="button" onClick={() => void removeKey()} className="text-muted hover:text-brand">
+            {t('settings.ai.removeKey')}
+          </button>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => void save()}
+        disabled={saving}
+        className="mt-4 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-60"
+      >
+        {t('settings.ai.save')}
+      </button>
     </Card>
   );
 }
@@ -298,19 +460,90 @@ function Stat({ label, value, highlight }: { label: string; value: number; highl
 
 function AccountCard() {
   const { t } = useI18n();
+  const { toast } = useToast();
+  const { refreshUser } = useAuth();
   const [me, setMe] = useState<User | null>(null);
+  const [name, setName] = useState('');
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
-    void api.me().then(setMe);
+    void api.me().then((u) => {
+      setMe(u);
+      setName(u.displayName ?? '');
+      setAvatar(u.avatarUrl);
+    });
   }, []);
   if (!me) return null;
+
+  function pickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1_000_000) {
+      toast(t('settings.account.avatarTooBig'), 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAvatar(typeof reader.result === 'string' ? reader.result : null);
+    reader.readAsDataURL(file);
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const updated = await api.updateProfile({ displayName: name.trim() || null, avatarUrl: avatar });
+      setMe(updated);
+      await refreshUser();
+      toast(t('settings.account.saved'), 'success');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Error', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <Card title={t('settings.account')} icon={<UserIcon className="h-4 w-4" />}>
-      <dl className="space-y-1 text-sm">
-        <Row label={t('settings.name')} value={me.displayName ?? '—'} />
+      <div className="mb-5 flex items-center gap-4">
+        <Avatar name={name || me.email} avatarUrl={avatar} size={56} />
+        <div className="flex flex-col items-start gap-1">
+          <label className="cursor-pointer text-sm text-brand hover:underline">
+            {t('settings.account.changeAvatar')}
+            <input type="file" accept="image/*" className="hidden" onChange={pickFile} />
+          </label>
+          {avatar && (
+            <button
+              type="button"
+              onClick={() => setAvatar(null)}
+              className="text-xs text-muted hover:text-brand"
+            >
+              {t('settings.account.removeAvatar')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <label className="mb-1 block text-sm text-muted">{t('settings.name')}</label>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+      />
+
+      <dl className="mt-4 space-y-1 text-sm">
         <Row label={t('settings.email')} value={me.email} />
         <Row label={t('settings.memberSince')} value={new Date(me.createdAt).toLocaleDateString()} />
         <Row label={t('settings.auth')} value={me.googleSub ? 'Google' : t('settings.password')} />
       </dl>
+
+      <button
+        type="button"
+        onClick={() => void save()}
+        disabled={saving}
+        className="mt-4 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-60"
+      >
+        {t('settings.account.save')}
+      </button>
     </Card>
   );
 }
@@ -327,10 +560,17 @@ function Row({ label, value }: { label: string; value: string }) {
 function AppearanceCard() {
   const { t, lang, setLang } = useI18n();
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [accent, setAccent] = useState<string>(getInitialAccent);
+  const [tourOff, setTourOff] = useState<boolean>(isTourDisabled);
 
   function pickTheme(next: Theme) {
     applyTheme(next);
     setTheme(next);
+  }
+
+  function pickAccent(next: string) {
+    applyAccent(next);
+    setAccent(getInitialAccent());
   }
 
   return (
@@ -362,6 +602,55 @@ function AppearanceCard() {
                 {l}
               </button>
             ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted">{t('settings.accent')}</span>
+          <div className="flex items-center gap-2">
+            {ACCENT_PRESETS.map((c) => (
+              <button
+                key={c}
+                onClick={() => pickAccent(c)}
+                title={c}
+                aria-label={c}
+                className={`h-6 w-6 rounded-full border-2 ${accent.toLowerCase() === c.toLowerCase() ? 'border-ink' : 'border-transparent'}`}
+                style={{ background: c }}
+              />
+            ))}
+            <label
+              className="relative h-6 w-6 cursor-pointer overflow-hidden rounded-full border border-line"
+              title={t('settings.accentCustom')}
+            >
+              <span className="absolute inset-0 grid place-items-center text-xs text-muted">＋</span>
+              <input
+                type="color"
+                value={accent}
+                onChange={(e) => pickAccent(e.target.value)}
+                className="absolute inset-0 cursor-pointer opacity-0"
+              />
+            </label>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted">{t('settings.tour')}</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => startTour(t)}
+              className="rounded-md border border-line px-3 py-1 text-ink hover:border-brand"
+            >
+              {t('settings.tourReplay')}
+            </button>
+            <label className="flex items-center gap-1.5 text-muted">
+              <input
+                type="checkbox"
+                checked={!tourOff}
+                onChange={(e) => {
+                  setTourDisabled(!e.target.checked);
+                  setTourOff(!e.target.checked);
+                }}
+              />
+              {t('settings.tourEnabled')}
+            </label>
           </div>
         </div>
       </div>
@@ -560,7 +849,12 @@ export function SettingsPage() {
         <div className="min-w-0">
           {active === 'account' && <AccountCard />}
           {active === 'appearance' && <AppearanceCard />}
-          {active === 'ai' && <AiActivityCard />}
+          {active === 'ai' && (
+            <>
+              <AiConfigCard />
+              <AiActivityCard />
+            </>
+          )}
           {active === 'connections' && (
             <>
               <MindlogIdCalendarCard />

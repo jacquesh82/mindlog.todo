@@ -8,6 +8,7 @@ interface UserRow {
   google_sub: string | null;
   mindlog_id_sub: string | null;
   display_name: string | null;
+  avatar_url: string | null;
   created_at: Date;
 }
 
@@ -16,10 +17,34 @@ function mapUser(r: UserRow): User {
     id: r.id,
     email: r.email,
     displayName: r.display_name,
+    avatarUrl: r.avatar_url,
     googleSub: r.google_sub,
     mindlogIdSub: r.mindlog_id_sub,
     createdAt: r.created_at.toISOString(),
   };
+}
+
+/** Update a user's editable profile fields (display name, avatar). */
+export async function updateProfile(
+  userId: string,
+  patch: { displayName?: string | null; avatarUrl?: string | null },
+): Promise<User | null> {
+  const sets: string[] = [];
+  const vals: unknown[] = [userId];
+  if (patch.displayName !== undefined) {
+    sets.push(`display_name = $${vals.length + 1}`);
+    vals.push(patch.displayName);
+  }
+  if (patch.avatarUrl !== undefined) {
+    sets.push(`avatar_url = $${vals.length + 1}`);
+    vals.push(patch.avatarUrl);
+  }
+  if (sets.length === 0) return findById(userId);
+  const { rows } = await getPool().query<UserRow>(
+    `UPDATE users SET ${sets.join(', ')} WHERE id = $1 RETURNING *`,
+    vals,
+  );
+  return rows[0] ? mapUser(rows[0]) : null;
 }
 
 /** Full row including the password hash — for credential checks only. */
@@ -80,6 +105,7 @@ export async function upsertMindlogIdUser(input: {
   sub: string;
   email: string;
   displayName?: string | null;
+  avatarUrl?: string | null;
 }): Promise<User> {
   const pool = getPool();
   const bySub = await pool.query<UserRow>('SELECT * FROM users WHERE mindlog_id_sub = $1', [
@@ -89,17 +115,18 @@ export async function upsertMindlogIdUser(input: {
 
   const byEmail = await pool.query<UserRow>('SELECT * FROM users WHERE email = $1', [input.email]);
   if (byEmail.rows[0]) {
+    // Link the mindlog id; backfill the avatar only when none is set locally.
     const linked = await pool.query<UserRow>(
-      'UPDATE users SET mindlog_id_sub = $1 WHERE id = $2 RETURNING *',
-      [input.sub, byEmail.rows[0].id],
+      'UPDATE users SET mindlog_id_sub = $1, avatar_url = COALESCE(avatar_url, $2) WHERE id = $3 RETURNING *',
+      [input.sub, input.avatarUrl ?? null, byEmail.rows[0].id],
     );
     return mapUser(linked.rows[0]!);
   }
 
   const { rows } = await pool.query<UserRow>(
-    `INSERT INTO users (email, password_hash, display_name, mindlog_id_sub)
-     VALUES ($1, NULL, $2, $3) RETURNING *`,
-    [input.email, input.displayName ?? null, input.sub],
+    `INSERT INTO users (email, password_hash, display_name, avatar_url, mindlog_id_sub)
+     VALUES ($1, NULL, $2, $3, $4) RETURNING *`,
+    [input.email, input.displayName ?? null, input.avatarUrl ?? null, input.sub],
   );
   return mapUser(rows[0]!);
 }

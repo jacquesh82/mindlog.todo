@@ -146,3 +146,28 @@ oauthConsentRouter.post('/authorize', async (req, res) => {
     sendOAuthError(res, err);
   }
 });
+
+// Claude's MCP OAuth callback(s). Pre-registering a client with these redirect
+// URIs lets the user paste a Client ID/Secret into the connector dialog and skip
+// Dynamic Client Registration.
+const CLAUDE_REDIRECT_URIS = [
+  'https://claude.ai/api/mcp/auth_callback',
+  'https://claude.com/api/mcp/auth_callback',
+];
+
+/**
+ * Convenience: register a confidential OAuth client pre-configured for Claude,
+ * returning the client_id + client_secret to display once in the settings card.
+ */
+oauthConsentRouter.post('/clients', async (_req, res) => {
+  try {
+    const registration = await oauthService.registerClient({
+      clientName: 'mindlog.todo — Claude connector',
+      redirectUris: CLAUDE_REDIRECT_URIS,
+      tokenEndpointAuthMethod: 'client_secret_post',
+    });
+    res.status(201).json(registration);
+  } catch (err) {
+    sendOAuthError(res, err);
+  }
+});

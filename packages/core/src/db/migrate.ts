@@ -404,6 +404,25 @@ function migrations(): Migration[] {
         CREATE INDEX IF NOT EXISTS oauth_auth_codes_user_idx ON oauth_auth_codes (user_id);
       `,
     },
+    {
+      // Per-user AI configuration (self-hosted / BYOK mode): chosen chat model
+      // and the user's own LLM API key, encrypted at rest (AES-256-GCM). In
+      // cloud-hosted mode this table is unused (shared key + metered credits).
+      // Also adds an optional avatar URL on users (set locally or seeded from
+      // the mindlog.id profile).
+      id: '022_user_ai_settings',
+      sql: /* sql */ `
+        CREATE TABLE IF NOT EXISTS user_ai_settings (
+          user_id     UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          provider    TEXT NOT NULL DEFAULT 'anthropic',
+          model       TEXT NOT NULL DEFAULT 'claude-sonnet-4-6',
+          api_key_enc TEXT,
+          updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      `,
+    },
   ];
 }
 

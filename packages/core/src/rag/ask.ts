@@ -1,21 +1,10 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config.js';
 import { notePageText } from '../domain/note.js';
 import type { TaskAskInput, TaskAskResult } from '../domain/task.js';
-import { ServiceUnavailable } from '../errors.js';
+import { chatComplete } from '../llm/chat.js';
 import * as aiLog from '../service/ai-log.service.js';
+import { resolveAiConfig } from '../service/ai.service.js';
 import * as noteService from '../service/note.service.js';
 import { searchTasks } from '../service/task.service.js';
-
-let client: Anthropic | null = null;
-
-function getClient(): Anthropic {
-  if (!config.anthropicApiKey) {
-    throw ServiceUnavailable('ANTHROPIC_API_KEY is not configured');
-  }
-  if (!client) client = new Anthropic({ apiKey: config.anthropicApiKey });
-  return client;
-}
 
 const SYSTEM_PROMPT =
   'You are a task-management assistant. Answer the user question using ONLY the ' +
@@ -53,27 +42,29 @@ export async function askTasks(userId: string, input: TaskAskInput): Promise<Tas
     `Tasks:\n${context}` +
     (noteContext ? `\n\nNotes:\n${noteContext}` : '') +
     `\n\nQuestion: ${input.question}`;
-  const message = await getClient().messages.create({
-    model: config.askModel,
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt }],
-  });
 
-  const answer = message.content
-    .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-    .map((block) => block.text)
-    .join('\n')
-    .trim();
+  // Resolve the effective model/key: shared (cloud) or the user's own (BYOK).
+  const ai = await resolveAiConfig(userId);
+  // Cloud-hosted: meter the monthly token budget before spending it.
+  if (ai.cloud) await aiLog.assertWithinLimit(userId);
+
+  const result = await chatComplete({
+    model: ai.model,
+    apiKey: ai.apiKey,
+    system: SYSTEM_PROMPT,
+    prompt: userPrompt,
+    maxTokens: 1024,
+  });
+  const answer = result.text;
 
   // Record the call (prompt, response, token usage) for the activity log.
   await aiLog.record(userId, {
     kind: 'ask',
-    model: config.askModel,
+    model: ai.model,
     prompt: userPrompt,
     response: answer,
-    inputTokens: message.usage.input_tokens,
-    outputTokens: message.usage.output_tokens,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
   });
 
   return {

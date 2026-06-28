@@ -1,5 +1,18 @@
 import {
   askTasks,
+  filterCreateSchema,
+  filterService,
+  filterUpdateSchema,
+  labelCreateSchema,
+  labelService,
+  labelUpdateSchema,
+  projectCreateSchema,
+  projectService,
+  projectUpdateSchema,
+  PROJECT_VIEW_MODES,
+  sectionCreateSchema,
+  sectionService,
+  sectionUpdateSchema,
   taskAskSchema,
   taskCreateSchema,
   taskListQuerySchema,
@@ -155,6 +168,263 @@ export function createMcpServer(userId: string): McpServer {
       inputSchema: { question: z.string(), k: z.number().int().min(1).max(20).optional() },
     },
     async (args) => jsonResult(await askTasks(userId, taskAskSchema.parse(args))),
+  );
+
+  // --- Projects ---
+
+  server.registerTool(
+    'project_list',
+    {
+      title: 'List projects',
+      description: 'List the user projects (the Inbox is the special is_inbox project).',
+      inputSchema: { includeArchived: z.boolean().optional() },
+    },
+    async ({ includeArchived }) =>
+      jsonResult(await projectService.listProjects(userId, includeArchived ?? false)),
+  );
+
+  server.registerTool(
+    'project_create',
+    {
+      title: 'Create project',
+      description: 'Create a project. Set parentId for a sub-project.',
+      inputSchema: {
+        name: z.string(),
+        color: z.string().describe('#rrggbb').optional(),
+        parentId: z.string().optional(),
+        isFavorite: z.boolean().optional(),
+        viewMode: z.enum(PROJECT_VIEW_MODES).optional(),
+        position: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) =>
+      jsonResult(await projectService.createProject(userId, projectCreateSchema.parse(args))),
+  );
+
+  server.registerTool(
+    'project_update',
+    {
+      title: 'Update project',
+      description: 'Update a project (rename, recolor, favorite, view mode, archive).',
+      inputSchema: {
+        id: z.string(),
+        name: z.string().optional(),
+        color: z.string().nullable().optional(),
+        parentId: z.string().nullable().optional(),
+        isFavorite: z.boolean().optional(),
+        viewMode: z.enum(PROJECT_VIEW_MODES).optional(),
+        position: z.number().int().min(0).optional(),
+        archived: z.boolean().optional(),
+      },
+    },
+    async ({ id, ...patch }) =>
+      jsonResult(await projectService.updateProject(userId, id, projectUpdateSchema.parse(patch))),
+  );
+
+  server.registerTool(
+    'project_delete',
+    {
+      title: 'Delete project',
+      description: 'Delete a project and all its tasks. The Inbox cannot be deleted.',
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      await projectService.deleteProject(userId, id);
+      return jsonResult({ deleted: true, id });
+    },
+  );
+
+  // --- Sections (board columns within a project) ---
+
+  server.registerTool(
+    'section_list',
+    {
+      title: 'List sections',
+      description: 'List the sections of a project.',
+      inputSchema: { projectId: z.string() },
+    },
+    async ({ projectId }) => jsonResult(await sectionService.listSections(userId, projectId)),
+  );
+
+  server.registerTool(
+    'section_create',
+    {
+      title: 'Create section',
+      description: 'Create a section (board column) in a project.',
+      inputSchema: {
+        projectId: z.string(),
+        name: z.string(),
+        position: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) =>
+      jsonResult(await sectionService.createSection(userId, sectionCreateSchema.parse(args))),
+  );
+
+  server.registerTool(
+    'section_update',
+    {
+      title: 'Update section',
+      description: 'Rename or reorder a section.',
+      inputSchema: {
+        id: z.string(),
+        name: z.string().optional(),
+        position: z.number().int().min(0).optional(),
+      },
+    },
+    async ({ id, ...patch }) =>
+      jsonResult(await sectionService.updateSection(userId, id, sectionUpdateSchema.parse(patch))),
+  );
+
+  server.registerTool(
+    'section_delete',
+    {
+      title: 'Delete section',
+      description: 'Delete a section; its tasks stay in the project (un-sectioned).',
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      await sectionService.deleteSection(userId, id);
+      return jsonResult({ deleted: true, id });
+    },
+  );
+
+  // --- Labels ---
+
+  server.registerTool(
+    'label_list',
+    {
+      title: 'List labels',
+      description: 'List the user labels (cross-project tags).',
+      inputSchema: {},
+    },
+    async () => jsonResult(await labelService.listLabels(userId)),
+  );
+
+  server.registerTool(
+    'label_create',
+    {
+      title: 'Create label',
+      description: 'Create a label (name is unique per user, case-insensitively).',
+      inputSchema: {
+        name: z.string(),
+        color: z.string().describe('#rrggbb').optional(),
+        isFavorite: z.boolean().optional(),
+      },
+    },
+    async (args) => jsonResult(await labelService.createLabel(userId, labelCreateSchema.parse(args))),
+  );
+
+  server.registerTool(
+    'label_update',
+    {
+      title: 'Update label',
+      description: 'Rename, recolor, or (un)favorite a label.',
+      inputSchema: {
+        id: z.string(),
+        name: z.string().optional(),
+        color: z.string().nullable().optional(),
+        isFavorite: z.boolean().optional(),
+      },
+    },
+    async ({ id, ...patch }) =>
+      jsonResult(await labelService.updateLabel(userId, id, labelUpdateSchema.parse(patch))),
+  );
+
+  server.registerTool(
+    'label_delete',
+    {
+      title: 'Delete label',
+      description: 'Delete a label and remove it from all tasks.',
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      await labelService.deleteLabel(userId, id);
+      return jsonResult({ deleted: true, id });
+    },
+  );
+
+  // --- Filters (saved Todoist-style queries) ---
+
+  server.registerTool(
+    'filter_list',
+    {
+      title: 'List filters',
+      description: 'List the user saved filters (named filter-queries).',
+      inputSchema: {},
+    },
+    async () => jsonResult(await filterService.listFilters(userId)),
+  );
+
+  server.registerTool(
+    'filter_create',
+    {
+      title: 'Create filter',
+      description:
+        'Create a saved filter, e.g. query "(p1 | p2) & @work & 7 days". Same syntax as task_query.',
+      inputSchema: {
+        name: z.string(),
+        query: z.string(),
+        color: z.string().describe('#rrggbb').optional(),
+        position: z.number().int().min(0).optional(),
+      },
+    },
+    async (args) =>
+      jsonResult(await filterService.createFilter(userId, filterCreateSchema.parse(args))),
+  );
+
+  server.registerTool(
+    'filter_update',
+    {
+      title: 'Update filter',
+      description: 'Update a saved filter (name, query, color, position).',
+      inputSchema: {
+        id: z.string(),
+        name: z.string().optional(),
+        query: z.string().optional(),
+        color: z.string().nullable().optional(),
+        position: z.number().int().min(0).optional(),
+      },
+    },
+    async ({ id, ...patch }) =>
+      jsonResult(await filterService.updateFilter(userId, id, filterUpdateSchema.parse(patch))),
+  );
+
+  server.registerTool(
+    'filter_delete',
+    {
+      title: 'Delete filter',
+      description: 'Delete a saved filter.',
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      await filterService.deleteFilter(userId, id);
+      return jsonResult({ deleted: true, id });
+    },
+  );
+
+  server.registerTool(
+    'filter_run',
+    {
+      title: 'Run filter',
+      description: 'Run a saved filter by id and return the matching tasks.',
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      const filter = await filterService.getFilter(userId, id);
+      return jsonResult(await taskService.runFilterQuery(userId, filter.query));
+    },
+  );
+
+  server.registerTool(
+    'task_query',
+    {
+      title: 'Run a filter query',
+      description:
+        'Run an ad-hoc Todoist-style filter query (e.g. "today & p1 & @work") and return matching tasks.',
+      inputSchema: { query: z.string() },
+    },
+    async ({ query }) => jsonResult(await taskService.runFilterQuery(userId, query)),
   );
 
   return server;

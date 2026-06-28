@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './api/client';
 import { useAuth } from './auth/AuthContext';
 import { AuthorizePage } from './auth/AuthorizePage';
@@ -7,10 +7,12 @@ import { ResetPasswordPage } from './auth/ResetPasswordPage';
 import { MainView } from './components/MainView';
 import { Sidebar } from './components/Sidebar';
 import { useI18n } from './i18n';
+import { DashboardView } from './pages/DashboardView';
 import { NotesView } from './pages/NotesView';
 import { ProjectView } from './pages/ProjectView';
 import { SearchAskView } from './pages/SearchAskView';
 import { SettingsPage } from './pages/SettingsPage';
+import { maybeStartTour } from './tour';
 import type { Filter, Karma, Label, Project } from './types';
 import type { View } from './app/view';
 
@@ -41,6 +43,15 @@ export function App() {
   useEffect(() => {
     reloadSidebar();
   }, [reloadSidebar]);
+
+  // First-login guided tour (no-op if already seen or disabled).
+  const tourStarted = useRef(false);
+  useEffect(() => {
+    if (user && !tourStarted.current) {
+      tourStarted.current = true;
+      maybeStartTour(t);
+    }
+  }, [user, t]);
 
   // Password-reset deep link (`/auth/reset?token=…`) — handled before the auth gate.
   const resetToken = window.location.pathname.endsWith('/auth/reset')
@@ -108,6 +119,7 @@ export function App() {
           if (view.kind === 'settings') return <SettingsPage />;
           if (view.kind === 'search') return <SearchAskView projects={projects} labels={labels} onChanged={reloadSidebar} />;
           if (view.kind === 'notes') return <NotesView />;
+          if (view.kind === 'dashboard') return <DashboardView />;
           if (view.kind === 'project' || view.kind === 'inbox') {
             const project = projects.find((p) => p.id === view.id);
             if (project) {

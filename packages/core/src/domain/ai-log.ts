@@ -20,3 +20,13 @@ export interface AiUsage {
   outputTokens: number;
   totalTokens: number;
 }
+
+/** Per-user AI credit balance for the current month (cloud-hosted mode). */
+export interface AiCredits {
+  /** Tokens consumed since the start of the current month. */
+  usedTokens: number;
+  /** Monthly allowance (AI_MONTHLY_TOKEN_LIMIT). */
+  limitTokens: number;
+  /** ISO timestamp when the allowance resets (start of next month). */
+  resetAt: string;
+}

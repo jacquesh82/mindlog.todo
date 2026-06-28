@@ -3,6 +3,7 @@ export type View =
   | { kind: 'upcoming' }
   | { kind: 'completed' }
   | { kind: 'notes' }
+  | { kind: 'dashboard' }
   | { kind: 'search' }
   | { kind: 'inbox'; id: string }
   | { kind: 'project'; id: string }

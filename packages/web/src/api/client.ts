@@ -179,9 +179,12 @@ export const api = {
       body: JSON.stringify({ token, password }),
     });
   },
-  /** Public URL of the remote MCP server (for the Claude custom connector). */
+  /** Absolute URL of the remote MCP server (for the Claude custom connector). */
   mcpUrl(): string {
-    return `${API || window.location.origin}/mcp`;
+    // VITE_API_URL may be empty (same origin) or a path prefix like "/app".
+    // Always return an ABSOLUTE url so it can be pasted into Claude as-is.
+    const base = /^https?:\/\//.test(API) ? API : `${window.location.origin}${API}`;
+    return `${base.replace(/\/$/, '')}/mcp`;
   },
   /** Approve or deny an OAuth authorization request; returns the redirect URL. */
   authorizeConsent(

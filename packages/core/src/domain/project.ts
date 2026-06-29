@@ -12,7 +12,7 @@ const colorSchema = z
 export const projectCreateSchema = z.object({
   name: z.string().min(1).max(200),
   color: colorSchema.optional(),
-  parentId: z.uuid().optional(),
+  parentId: z.uuid().nullable().optional(),
   isFavorite: z.boolean().optional(),
   viewMode: z.enum(PROJECT_VIEW_MODES).optional(),
   position: z.number().int().min(0).optional(),

@@ -21,6 +21,22 @@ export function NotesView() {
   const [aiBusy, setAiBusy] = useState(false);
   const [taskPreview, setTaskPreview] = useState<{ text: string; checked: boolean }[] | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Collapse the notebooks+pages columns into a thin vertical-tab rail to give
+  // the editor more room. Choice is persisted across sessions.
+  const [railCollapsed, setRailCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('mindlog.notes.railCollapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('mindlog.notes.railCollapsed', railCollapsed ? '1' : '0');
+    } catch {
+      /* ignore storage errors (private mode) */
+    }
+  }, [railCollapsed]);
 
   const reloadNotebooks = useCallback(() => {
     void api.listNotebooks().then((nbs) => {
@@ -220,6 +236,60 @@ export function NotesView() {
 
   return (
     <div className="flex h-full">
+      {railCollapsed && (
+        /* Collapsed: notebooks and pages become two thin vertical-tab columns side by side. */
+        <div className="flex shrink-0 border-r border-line bg-sidebar">
+          {/* Notebooks column (with the expand chevron on top). */}
+          <div className="flex w-11 flex-col items-center gap-1 py-2">
+            <button
+              onClick={() => setRailCollapsed(false)}
+              title={t('notes.expandPanels')}
+              aria-label={t('notes.expandPanels')}
+              aria-expanded={false}
+              className="flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-line/60 hover:text-brand"
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 4l6 6-6 6" /></svg>
+            </button>
+            <div className="my-1 h-px w-6 bg-line" />
+            <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto">
+              {/* Notebooks: click to switch (the pages column refreshes), staying collapsed. */}
+              {notebooks.map((nb) => (
+                <button
+                  key={nb.id}
+                  onClick={() => setActiveNb(nb.id)}
+                  title={nb.name}
+                  aria-label={`${t('notes.selectNotebook')}: ${nb.name}`}
+                  aria-pressed={activeNb === nb.id}
+                  className={`flex flex-col items-center gap-2 rounded-md px-1.5 py-2 transition-colors ${activeNb === nb.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'}`}
+                >
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: nb.color ?? '#808080' }} />
+                  <span className="max-h-44 truncate text-sm" style={{ writingMode: 'vertical-rl' }}>{nb.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Pages column: pages of the active notebook; click to open without expanding. */}
+          <div className="flex w-11 flex-col items-center gap-1 border-l border-line py-2">
+            <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto">
+              {pages.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => void openPage(p.id)}
+                  title={p.title || t('notes.untitled')}
+                  aria-label={p.title || t('notes.untitled')}
+                  aria-pressed={page?.id === p.id}
+                  className={`flex flex-col items-center gap-2 rounded-md px-1.5 py-2 transition-colors ${page?.id === p.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'}`}
+                >
+                  <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ backgroundColor: p.color ?? 'transparent' }} />
+                  <span className="max-h-44 truncate text-sm" style={{ writingMode: 'vertical-rl' }}>{p.title || t('notes.untitled')}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {!railCollapsed && (
+        <>
       {/* Notebooks pane */}
       <div className="flex w-48 shrink-0 flex-col border-r border-line bg-sidebar">
         <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase text-muted">
@@ -305,6 +375,19 @@ export function NotesView() {
           )}
         </div>
       </div>
+
+      {/* Collapse handle sitting on the border between the page list and the editor. */}
+      <button
+        onClick={() => setRailCollapsed(true)}
+        title={t('notes.collapsePanels')}
+        aria-label={t('notes.collapsePanels')}
+        aria-expanded={true}
+        className="group flex w-3 shrink-0 cursor-pointer items-center justify-center border-r border-line bg-sidebar transition-colors hover:bg-brand-soft"
+      >
+        <svg viewBox="0 0 20 20" className="h-4 w-4 text-muted transition-colors group-hover:text-brand" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 4l-6 6 6 6" /></svg>
+      </button>
+        </>
+      )}
 
       {/* Editor pane */}
       <div className="flex-1 overflow-y-auto">

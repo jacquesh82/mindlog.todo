@@ -10,7 +10,8 @@ import {
   type PageCreateInput,
   type PageUpdateInput,
 } from '../domain/note.js';
-import { cloudHosted } from '../config.js';
+import { cloudHosted, config } from '../config.js';
+import { isRelevantHit, significantTerms } from '../domain/search-relevance.js';
 import { embedOne } from '../embeddings/provider.js';
 import { BadRequest, NotFound, QuotaExceeded } from '../errors.js';
 import * as repo from '../repository/note.repo.js';
@@ -120,7 +121,16 @@ export async function searchPages(
 ): Promise<NotePageHit[]> {
   const vec = await embedOne(query);
   if (vec.length === 0) return [];
-  return repo.search(userId, vec, k, scope);
+  // Keep only pages that share a query term (matched on the title) OR are a
+  // strong semantic match, above the absolute floor — so an unrelated query
+  // doesn't surface every RAG page at 1–8% similarity.
+  const terms = significantTerms(query);
+  return (await repo.search(userId, vec, k, scope)).filter((h) =>
+    isRelevantHit(h.score, h.title, terms, {
+      minScore: config.searchMinScore,
+      strongScore: config.searchStrongScore,
+    }),
+  );
 }
 
 export async function deletePage(userId: string, id: string): Promise<void> {

@@ -442,6 +442,20 @@ describe('tasks', () => {
     expect(res.body[0].title).toBe('Quarterly financial report');
     expect(res.body[0].score).toBeGreaterThan(0);
   });
+
+  it('returns nothing for a query that matches no task (relevance floor)', async () => {
+    const { accessToken } = await registerUser('nomatch@ex.com');
+    await request(app)
+      .post('/api/v1/tasks')
+      .set(auth(accessToken))
+      .send({ title: 'Buy office plants' });
+    const res = await request(app)
+      .post('/api/v1/tasks/search')
+      .set(auth(accessToken))
+      .send({ query: 'wifi router firmware', k: 5 });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
 });
 
 describe('api keys', () => {

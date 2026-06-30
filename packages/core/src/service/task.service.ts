@@ -15,6 +15,7 @@ import {
   referencedNames,
 } from '../domain/filter-query.js';
 import { parseQuickAdd, type QuickAddParse } from '../domain/quickadd.js';
+import { isRelevantHit, significantTerms } from '../domain/search-relevance.js';
 import { nextOccurrence, normalizeRecurrence, parseRecurrence } from '../domain/recurrence.js';
 import * as attachmentRepo from '../repository/attachment.repo.js';
 import { emitChange } from './changes.js';
@@ -41,6 +42,7 @@ export async function reembedTask(userId: string, taskId: string): Promise<void>
   });
   await repo.update(userId, taskId, {}, embedding);
 }
+import { config } from '../config.js';
 import { embedOne } from '../embeddings/provider.js';
 import { BadRequest, NotFound } from '../errors.js';
 import * as labelRepo from '../repository/label.repo.js';
@@ -296,7 +298,17 @@ export async function searchTasks(
 ): Promise<TaskSearchHit[]> {
   const vec = await embedOne(input.query);
   if (vec.length === 0) return [];
-  return attachLabels(await repo.search(userId, vec, input.k, input.status));
+  // Keep only hits that share a query term OR are a strong semantic match, above
+  // the absolute floor — so an off-topic query (e.g. "wifi" against a grocery
+  // list) or near-centroid junk returns nothing instead of k irrelevant tasks.
+  const terms = significantTerms(input.query);
+  const hits = (await repo.search(userId, vec, input.k, input.status)).filter((h) =>
+    isRelevantHit(h.score, taskEmbeddingText(h), terms, {
+      minScore: config.searchMinScore,
+      strongScore: config.searchStrongScore,
+    }),
+  );
+  return attachLabels(hits);
 }
 
 /** Preview of a Quick Add line, with the project/label names it would resolve. */

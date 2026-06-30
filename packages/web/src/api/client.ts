@@ -7,6 +7,7 @@ import type {
   CalendarSource,
   ExternalEvent,
   Notebook,
+  NoteHit,
   NotePage,
   NotePageSummary,
   AskResult,
@@ -372,6 +373,13 @@ export const api = {
   /** AI: summarize a notebook's pages into a new "Summary" page. */
   summarizeNotebook(notebookId: string): Promise<NotePage> {
     return request<NotePage>(`/api/v1/notes/notebooks/${notebookId}/summarize`, { method: 'POST' });
+  },
+  /** Semantic search over RAG-enabled note pages (optionally scoped to notebooks). */
+  searchNotes(query: string, k = 10, notebookIds?: string[]): Promise<NoteHit[]> {
+    return request<NoteHit[]>('/api/v1/notes/search', {
+      method: 'POST',
+      body: JSON.stringify({ query, k, notebookIds }),
+    });
   },
 
   // attachments (feed the RAG)

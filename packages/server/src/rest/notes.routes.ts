@@ -14,6 +14,19 @@ import { requireAuth, userId } from '../middleware/auth.js';
 export const notesRouter: Router = Router();
 notesRouter.use(requireAuth);
 
+// Semantic search over the user's RAG-enabled note pages (optionally scoped to
+// notebooks). Powers the Notes section of the Search view.
+const noteSearchSchema = z.object({
+  query: z.string().min(1),
+  k: z.coerce.number().int().min(1).max(50).default(10),
+  notebookIds: z.array(z.uuid()).optional(),
+});
+notesRouter.post('/search', async (req, res) => {
+  const { query, k, notebookIds } = noteSearchSchema.parse(req.body);
+  const scope = notebookIds?.length ? { notebookIds } : undefined;
+  res.json(await noteService.searchPages(userId(req), query, k, scope));
+});
+
 // Notebooks
 notesRouter.get('/notebooks', async (req, res) => {
   res.json(await noteService.listNotebooks(userId(req)));

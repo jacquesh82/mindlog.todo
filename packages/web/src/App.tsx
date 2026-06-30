@@ -162,8 +162,16 @@ export function App() {
         <SelectionProvider>
         {(() => {
           if (view.kind === 'settings') return <SettingsPage />;
-          if (view.kind === 'search') return <SearchAskView projects={projects} labels={labels} onChanged={reloadSidebar} />;
-          if (view.kind === 'notes') return <NotesView />;
+          if (view.kind === 'search')
+            return (
+              <SearchAskView
+                projects={projects}
+                labels={labels}
+                onChanged={reloadSidebar}
+                onOpenNote={(pageId) => setView({ kind: 'notes', pageId })}
+              />
+            );
+          if (view.kind === 'notes') return <NotesView initialPageId={view.pageId} />;
           if (view.kind === 'dashboard') return <DashboardView />;
           if (view.kind === 'project' || view.kind === 'inbox') {
             const project = projects.find((p) => p.id === view.id);

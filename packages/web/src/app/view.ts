@@ -2,7 +2,7 @@ export type View =
   | { kind: 'today' }
   | { kind: 'upcoming' }
   | { kind: 'completed' }
-  | { kind: 'notes' }
+  | { kind: 'notes'; pageId?: string }
   | { kind: 'dashboard' }
   | { kind: 'search' }
   | { kind: 'inbox'; id: string }

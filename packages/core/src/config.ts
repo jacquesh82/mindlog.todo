@@ -37,6 +37,13 @@ function intEnv(key: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function floatEnv(key: string, fallback: number): number {
+  const raw = process.env[key];
+  if (!raw) return fallback;
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export type EmbeddingProviderId = 'local' | 'voyage' | 'openai' | 'fake';
 
 export const config = {
@@ -50,6 +57,15 @@ export const config = {
 
   embeddingProvider: (env('EMBEDDING_PROVIDER', 'local') as EmbeddingProviderId),
   embeddingDim: intEnv('EMBEDDING_DIM', 384),
+  // Minimum cosine similarity (0..1) a semantic-search hit must reach to be
+  // returned. Without it, k-NN always yields k results — even for a query that
+  // matches nothing — so unrelated tasks/notes appear at 1–8% relevance.
+  searchMinScore: floatEnv('SEARCH_MIN_SCORE', 0.2),
+  // Cosine score above which a hit is accepted on semantics alone (no shared
+  // word). Between this and `searchMinScore`, a hit must also match a query term
+  // literally — so near-centroid junk (gibberish/unrelated short text scoring
+  // ~0.25–0.35) is dropped instead of shown.
+  searchStrongScore: floatEnv('SEARCH_STRONG_SCORE', 0.5),
   voyageApiKey: env('VOYAGE_API_KEY'),
   openaiApiKey: env('OPENAI_API_KEY'),
 

@@ -7,7 +7,7 @@ import { NotesEditor } from '../components/NotesEditor';
 import type { Label, Notebook, NotePage, NotePageSummary, Project } from '../types';
 
 // A OneNote-lite 3-pane workspace: notebooks | pages | editor.
-export function NotesView() {
+export function NotesView({ initialPageId }: { initialPageId?: string }) {
   const { t } = useI18n();
   const dialog = useDialog();
   const { toast } = useToast();
@@ -59,6 +59,19 @@ export function NotesView() {
     if (activeNb) reloadPages(activeNb);
     else setPages([]);
   }, [activeNb, reloadPages]);
+
+  // Deep-link: open a specific page when navigated to from the Search view.
+  useEffect(() => {
+    if (!initialPageId) return;
+    void api
+      .getPage(initialPageId)
+      .then((p) => {
+        setActiveNb(p.notebookId);
+        setPage(p);
+        setSaved(true);
+      })
+      .catch(() => {});
+  }, [initialPageId]);
 
   async function addNotebook() {
     const name = await dialog.promptText({ title: t('notes.notebookName'), placeholder: t('notes.notebookName') });

@@ -240,6 +240,10 @@ export interface NotePage {
 
 export type NotePageSummary = Omit<NotePage, 'content'>;
 
+export interface NoteHit extends NotePageSummary {
+  score: number;
+}
+
 export interface CalendarSource {
   id: string;
   userId: string;

@@ -3,9 +3,19 @@ import { api, ApiError } from '../api/client';
 import { EmptyState, SearchEmptyArt } from '../components/Illustrations';
 import { TaskEditor } from '../components/TaskEditor';
 import { useI18n } from '../i18n';
-import type { AskResult, Label, Notebook, Project, Task, TaskHit } from '../types';
+import type { AskResult, Label, NoteHit, Notebook, Project, Task, TaskHit } from '../types';
 
-export function SearchAskView({ projects, labels, onChanged }: { projects: Project[]; labels: Label[]; onChanged: () => void }) {
+export function SearchAskView({
+  projects,
+  labels,
+  onChanged,
+  onOpenNote,
+}: {
+  projects: Project[];
+  labels: Label[];
+  onChanged: () => void;
+  onOpenNote: (pageId: string) => void;
+}) {
   const { t } = useI18n();
   const [editing, setEditing] = useState<Task | null>(null);
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
@@ -16,6 +26,7 @@ export function SearchAskView({ projects, labels, onChanged }: { projects: Proje
   }, []);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<TaskHit[] | null>(null);
+  const [noteHits, setNoteHits] = useState<NoteHit[] | null>(null);
   const [answer, setAnswer] = useState<AskResult | null>(null);
   const [busy, setBusy] = useState<'search' | 'ask' | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -26,11 +37,18 @@ export function SearchAskView({ projects, labels, onChanged }: { projects: Proje
     setBusy(mode);
     try {
       if (mode === 'search') {
-        setHits(await api.search(q));
+        const notebookIds = scope.length ? scope : undefined;
+        const [taskHits, foundNotes] = await Promise.all([
+          api.search(q),
+          api.searchNotes(q, 10, notebookIds),
+        ]);
+        setHits(taskHits);
+        setNoteHits(foundNotes);
         setAnswer(null);
       } else {
         setAnswer(await api.ask(q, 8, scope.length ? scope : undefined));
         setHits(null);
+        setNoteHits(null);
       }
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Request failed');
@@ -120,23 +138,49 @@ export function SearchAskView({ projects, labels, onChanged }: { projects: Proje
         </div>
       )}
 
-      {hits && hits.length === 0 && (
+      {hits !== null && hits.length === 0 && (noteHits?.length ?? 0) === 0 && (
         <EmptyState art={<SearchEmptyArt className="h-full w-full" />} title={t('search.noMatch')} subtitle={t('search.noMatchHint')} />
       )}
-      {hits && hits.length > 0 && (
-        <ul className="mt-5 divide-y divide-line">
-          {hits.map((h) => (
-            <li key={h.id}>
-              <button
-                onClick={() => setEditing(h)}
-                className="flex w-full items-center gap-2 py-2 text-left text-sm hover:text-brand"
-              >
-                <span className="flex-1 text-ink">{h.title}</span>
-                <span className="text-xs text-muted">{(h.score * 100).toFixed(0)}%</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+      {hits !== null && (hits.length > 0 || (noteHits?.length ?? 0) > 0) && (
+        <div className="mt-5 space-y-6">
+          {hits.length > 0 && (
+            <section>
+              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{t('search.tasks')}</h2>
+              <ul className="divide-y divide-line">
+                {hits.map((h) => (
+                  <li key={h.id}>
+                    <button
+                      onClick={() => setEditing(h)}
+                      className="flex w-full items-center gap-2 py-2 text-left text-sm hover:text-brand"
+                    >
+                      <span className="flex-1 text-ink">{h.title}</span>
+                      <span className="text-xs text-muted">{(h.score * 100).toFixed(0)}%</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {noteHits && noteHits.length > 0 && (
+            <section>
+              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{t('search.notes')}</h2>
+              <ul className="divide-y divide-line">
+                {noteHits.map((n) => (
+                  <li key={n.id}>
+                    <button
+                      onClick={() => onOpenNote(n.id)}
+                      className="flex w-full items-center gap-2 py-2 text-left text-sm hover:text-brand"
+                    >
+                      <span className="shrink-0">📓</span>
+                      <span className="flex-1 text-ink">{n.title}</span>
+                      <span className="text-xs text-muted">{(n.score * 100).toFixed(0)}%</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
       )}
 
       {editing && (

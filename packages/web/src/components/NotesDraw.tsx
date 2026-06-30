@@ -8,7 +8,7 @@ import { useToast } from '../toast';
 // hatched fill, then optionally ask the AI to redraw the sketch cleanly as an
 // SVG (a tidy schema, chart or diagram).
 
-export type ShapeType = 'rect' | 'ellipse' | 'triangle' | 'line' | 'arrow';
+export type ShapeType = 'rect' | 'ellipse' | 'triangle' | 'line' | 'arrow' | 'pencil' | 'text';
 export type FillStyle = 'none' | 'solid' | 'hatch';
 
 export interface DrawShape {
@@ -22,6 +22,10 @@ export interface DrawShape {
   fill: string;
   fillStyle: FillStyle;
   strokeWidth: number;
+  /** Freehand path points, flat [x0,y0,x1,y1,…] (type 'pencil'). */
+  points?: number[];
+  /** Annotation label (type 'text'). */
+  text?: string;
 }
 
 export interface DrawBoxData {
@@ -43,6 +47,8 @@ const TOOLS: { type: ShapeType; glyph: string; key: string }[] = [
   { type: 'triangle', glyph: '△', key: 'draw.triangle' },
   { type: 'line', glyph: '╱', key: 'draw.line' },
   { type: 'arrow', glyph: '↗', key: 'draw.arrow' },
+  { type: 'pencil', glyph: '✎', key: 'draw.pencil' },
+  { type: 'text', glyph: 'A', key: 'draw.text' },
 ];
 // AI redraw intents (mapped to localized labels in the menu).
 const AI_INTENTS = [
@@ -117,11 +123,13 @@ export function NotesDraw({ box, active, canvasW, onActivate, onChange, onDelete
   const [view, setView] = useState<'draw' | 'ai'>(box.aiSvg ? 'ai' : 'draw');
   const [aiOpen, setAiOpen] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  // Id of the text annotation currently being edited via the overlay input.
+  const [editingText, setEditingText] = useState<string | null>(null);
 
   // Pointer interaction bookkeeping (drawing a new shape OR moving a selected one).
   const action = useRef<
     | { kind: 'draw'; start: { x: number; y: number } }
-    | { kind: 'move'; id: string; start: { x: number; y: number }; orig: { x: number; y: number } }
+    | { kind: 'move'; id: string; start: { x: number; y: number }; orig: { x: number; y: number; points?: number[] } }
     | null
   >(null);
 
@@ -131,9 +139,20 @@ export function NotesDraw({ box, active, canvasW, onActivate, onChange, onDelete
     aiRef.current.innerHTML = box.aiSvg ? sanitizeSvg(box.aiSvg) : '';
   }, [view, box.aiSvg]);
 
-  function localPoint(e: React.PointerEvent): { x: number; y: number } {
+  function localPoint(e: { clientX: number; clientY: number }): { x: number; y: number } {
     const r = surfaceRef.current!.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  /** Commit (or drop, if empty) the text of an annotation being edited. */
+  function commitText(id: string, value: string) {
+    const v = value.trim();
+    onChange({
+      shapes: v
+        ? box.shapes.map((s) => (s.id === id ? { ...s, text: v } : s))
+        : box.shapes.filter((s) => s.id !== id),
+    });
+    setEditingText(null);
   }
 
   function hitTest(p: { x: number; y: number }): DrawShape | null {
@@ -145,18 +164,35 @@ export function NotesDraw({ box, active, canvasW, onActivate, onChange, onDelete
     return null;
   }
 
+  /** Apply a patch to the selected shape (e.g. change fill/stroke after drawing). */
+  function patchSelected(patch: Partial<DrawShape>) {
+    if (!selected) return;
+    onChange({ shapes: box.shapes.map((s) => (s.id === selected ? { ...s, ...patch } : s)) });
+  }
+
   function onPointerDown(e: React.PointerEvent) {
     if (view !== 'draw') return;
     onActivate();
     const p = localPoint(e);
-    surfaceRef.current?.setPointerCapture(e.pointerId);
     if (tool === 'select') {
+      surfaceRef.current?.setPointerCapture(e.pointerId);
       const hit = hitTest(p);
       setSelected(hit?.id ?? null);
-      if (hit) action.current = { kind: 'move', id: hit.id, start: p, orig: { x: hit.x, y: hit.y } };
+      if (hit) action.current = { kind: 'move', id: hit.id, start: p, orig: { x: hit.x, y: hit.y, points: hit.points } };
       return;
     }
-    setDraft({ id: rid(), type: tool, x: p.x, y: p.y, w: 0, h: 0, stroke, fill, fillStyle, strokeWidth: 2 });
+    if (tool === 'text') {
+      // A text annotation is placed on click and edited inline (no drag).
+      const s: DrawShape = { id: rid(), type: 'text', x: p.x, y: p.y, w: 160, h: 24, stroke, fill, fillStyle: 'none', strokeWidth: 2, text: '' };
+      onChange({ shapes: [...box.shapes, s] });
+      setSelected(s.id);
+      setEditingText(s.id);
+      return;
+    }
+    surfaceRef.current?.setPointerCapture(e.pointerId);
+    const base: DrawShape = { id: rid(), type: tool, x: p.x, y: p.y, w: 0, h: 0, stroke, fill, fillStyle, strokeWidth: 2 };
+    if (tool === 'pencil') base.points = [p.x, p.y];
+    setDraft(base);
     action.current = { kind: 'draw', start: p };
   }
 
@@ -165,23 +201,44 @@ export function NotesDraw({ box, active, canvasW, onActivate, onChange, onDelete
     const p = localPoint(e);
     if (action.current.kind === 'draw') {
       const start = action.current.start;
-      setDraft((d) => (d ? { ...d, w: p.x - start.x, h: p.y - start.y } : d));
+      setDraft((d) => {
+        if (!d) return d;
+        if (d.type === 'pencil') return { ...d, points: [...(d.points ?? []), p.x, p.y], w: p.x - start.x, h: p.y - start.y };
+        return { ...d, w: p.x - start.x, h: p.y - start.y };
+      });
     } else {
       const { id, start, orig } = action.current;
       const dx = p.x - start.x;
       const dy = p.y - start.y;
       onChange({
-        shapes: box.shapes.map((s) => (s.id === id ? { ...s, x: orig.x + dx, y: orig.y + dy } : s)),
+        shapes: box.shapes.map((s) => {
+          if (s.id !== id) return s;
+          const moved: DrawShape = { ...s, x: orig.x + dx, y: orig.y + dy };
+          if (orig.points) moved.points = orig.points.map((v, i) => v + (i % 2 === 0 ? dx : dy));
+          return moved;
+        }),
       });
     }
   }
 
   function onPointerUp() {
     if (action.current?.kind === 'draw' && draft) {
-      // Ignore stray clicks; keep only shapes with a meaningful size/length.
-      if (Math.abs(draft.w) > 4 || Math.abs(draft.h) > 4) {
-        onChange({ shapes: [...box.shapes, draft] });
-        setSelected(draft.id);
+      let shape = draft;
+      let keep = Math.abs(draft.w) > 4 || Math.abs(draft.h) > 4;
+      if (draft.type === 'pencil') {
+        const pts = draft.points ?? [];
+        keep = pts.length >= 4; // at least two points
+        if (keep) {
+          const xs = pts.filter((_, i) => i % 2 === 0);
+          const ys = pts.filter((_, i) => i % 2 === 1);
+          const minX = Math.min(...xs);
+          const minY = Math.min(...ys);
+          shape = { ...draft, x: minX, y: minY, w: Math.max(...xs) - minX, h: Math.max(...ys) - minY };
+        }
+      }
+      if (keep) {
+        onChange({ shapes: [...box.shapes, shape] });
+        setSelected(shape.id);
       }
       setDraft(null);
     }
@@ -205,7 +262,7 @@ export function NotesDraw({ box, active, canvasW, onActivate, onChange, onDelete
       const { svg } = await api.cleanupDrawing({
         shapes: box.shapes.map((s) => {
           const n = norm(s);
-          return { type: s.type, x: n.x, y: n.y, w: s.w, h: s.h, stroke: s.stroke, fill: s.fill, fillStyle: s.fillStyle };
+          return { type: s.type, x: n.x, y: n.y, w: n.w, h: n.h, stroke: s.stroke, fill: s.fill, fillStyle: s.fillStyle, text: s.text };
         }),
         instruction,
         width: box.w,
@@ -307,7 +364,7 @@ export function NotesDraw({ box, active, canvasW, onActivate, onChange, onDelete
               {STROKES.map((c) => (
                 <button
                   key={c}
-                  onClick={() => { setStroke(c); setFill(c); }}
+                  onClick={() => { setStroke(c); setFill(c); patchSelected({ stroke: c, fill: c }); }}
                   className={`h-4 w-4 rounded-full border ${stroke === c ? 'border-brand ring-1 ring-brand' : 'border-line'}`}
                   style={{ backgroundColor: c }}
                   title={t('draw.color')}
@@ -317,7 +374,7 @@ export function NotesDraw({ box, active, canvasW, onActivate, onChange, onDelete
               {(['none', 'solid', 'hatch'] as FillStyle[]).map((fs) => (
                 <button
                   key={fs}
-                  onClick={() => setFillStyle(fs)}
+                  onClick={() => { setFillStyle(fs); patchSelected({ fillStyle: fs }); }}
                   className={`h-6 rounded px-1 text-xs ${fillStyle === fs ? 'bg-brand-soft text-brand' : 'text-ink hover:bg-line/60'}`}
                   title={t(`draw.fill.${fs}`)}
                 >{fs === 'none' ? '⬜' : fs === 'solid' ? '⬛' : '▤'}</button>
@@ -369,6 +426,10 @@ export function NotesDraw({ box, active, canvasW, onActivate, onChange, onDelete
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onDoubleClick={(e) => {
+            const hit = hitTest(localPoint(e));
+            if (hit?.type === 'text') { setSelected(hit.id); setEditingText(hit.id); }
+          }}
         >
           <defs>
             {hatchColors.map((c) => (
@@ -382,6 +443,25 @@ export function NotesDraw({ box, active, canvasW, onActivate, onChange, onDelete
           ))}
         </svg>
       )}
+
+      {editingText && view === 'draw' && (() => {
+        const s = box.shapes.find((x) => x.id === editingText);
+        if (!s) return null;
+        return (
+          <input
+            autoFocus
+            defaultValue={s.text ?? ''}
+            onBlur={(e) => commitText(editingText, e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+              if (e.key === 'Escape') { e.preventDefault(); commitText(editingText, (e.target as HTMLInputElement).value); }
+            }}
+            placeholder={t('draw.textPlaceholder')}
+            style={{ left: s.x, top: s.y, color: s.stroke }}
+            className="absolute z-20 min-w-24 rounded border border-brand bg-surface px-1 text-sm outline-none"
+          />
+        );
+      })()}
 
       {active && (
         <div
@@ -411,6 +491,26 @@ function ShapeNode({ boxId, shape, selected }: { boxId: string; shape: DrawShape
     node = <ellipse cx={n.x + n.w / 2} cy={n.y + n.h / 2} rx={n.w / 2} ry={n.h / 2} {...common} />;
   } else if (shape.type === 'triangle') {
     node = <polygon points={`${n.x + n.w / 2},${n.y} ${n.x},${n.y + n.h} ${n.x + n.w},${n.y + n.h}`} {...common} />;
+  } else if (shape.type === 'pencil') {
+    const pts = shape.points ?? [];
+    const str = pts.reduce((acc, v, i) => (i % 2 === 0 ? `${acc} ${v}` : `${acc},${v}`), '').trim();
+    node = (
+      <polyline
+        points={str}
+        fill="none"
+        stroke={shape.stroke}
+        strokeWidth={shape.strokeWidth}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    );
+  } else if (shape.type === 'text') {
+    node = (
+      <text x={shape.x} y={shape.y + 16} fill={shape.stroke} fontSize={16} style={{ userSelect: 'none' }}>
+        {shape.text ?? ''}
+      </text>
+    );
   } else {
     // line / arrow: keep direction (start = x,y; end = x+w,y+h).
     const x1 = shape.x;

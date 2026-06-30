@@ -3,7 +3,7 @@ import { api, ApiError } from '../api/client';
 import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
-import { NotesEditor } from '../components/NotesEditor';
+import { NotesDocument } from '../components/NotesDocument';
 import type { Label, Notebook, NotePage, NotePageSummary, Project } from '../types';
 
 // A OneNote-lite 3-pane workspace: notebooks | pages | editor.
@@ -432,8 +432,9 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
               </div>
               <span>{saved ? t('notes.saved') : t('notes.saving')}</span>
             </div>
-            <NotesEditor
+            <NotesDocument
               key={page.id}
+              pageId={page.id}
               initialContent={page.content}
               onChange={(content) => edit({ content })}
               onCreateTask={createTaskFromNote}

@@ -72,9 +72,12 @@ export function notePageText(title: string, content: string): string {
     html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim();
   let body = '';
   try {
-    const parsed = JSON.parse(content) as { boxes?: { html: string }[] };
-    if (parsed && Array.isArray(parsed.boxes)) body = parsed.boxes.map((b) => strip(b.html)).join('\n');
-    else body = strip(content);
+    const parsed = JSON.parse(content) as { boxes?: { html: string }[]; markdown?: string };
+    const parts: string[] = [];
+    if (Array.isArray(parsed.boxes)) parts.push(parsed.boxes.map((b) => strip(b.html)).join('\n'));
+    // Raw-text mode stores plain CommonMark; index it as-is.
+    if (typeof parsed.markdown === 'string' && parsed.markdown.trim()) parts.push(parsed.markdown);
+    body = parts.length ? parts.join('\n') : strip(content);
   } catch {
     body = strip(content);
   }

@@ -1,4 +1,4 @@
-import * as chrono from 'chrono-node';
+import * as chrono from 'chrono-i18n';
 import { normalizeRecurrence } from './recurrence.js';
 
 // Natural-language "Quick Add": turn a single line like
@@ -20,9 +20,9 @@ const PRIORITY_RE = /(?:^|\s)(p[1-4])(?=\s|$)/i;
 const PROJECT_RE = /(?:^|\s)#([\p{L}\p{N}_-]+)/u;
 const LABEL_RE = /(?:^|\s)@([\p{L}\p{N}_-]+)/gu;
 
-/** Pull the recurrence phrase ("every …") out of the text, if any. */
+/** Pull the recurrence phrase ("every …" / "tous les …") out of the text, if any. */
 function extractRecurrence(text: string): { recurrence: string | null; rest: string } {
-  const m = text.match(/\bevery\b.*$/i);
+  const m = text.match(/\b(?:every|chaque|tous les|toutes les|tout les|toute les)\b.*$/i);
   if (!m || m.index === undefined) return { recurrence: null, rest: text };
   const words = m[0].split(/\s+/);
   // Greedily shrink the trailing phrase until it parses as a valid rule.
@@ -76,10 +76,14 @@ export function parseQuickAdd(
   const { recurrence, rest } = extractRecurrence(text);
   text = rest;
 
-  // Date / time via chrono (forwardDate keeps "friday"/"vendredi" in the
-  // future). Parse with BOTH English and French and keep the single match that
-  // covers the most text — otherwise English grabs a partial match (e.g. just
-  // "17h") and leaves the rest of a French date phrase in the title.
+  // Date / time via chrono-i18n's per-locale parsers (forwardDate keeps
+  // "friday"/"vendredi" in the future). Parse with BOTH English and French and
+  // keep the single match that covers the most text. We arbitrate by span length
+  // rather than chrono.i18n's unified parser because for bilingual time shorthand
+  // English reads "9h"/"17h" as a relative duration ("in 9 hours") and wins the
+  // unified richness ranking, whereas this app wants the French clock-time
+  // reading — and longest-text selection also stops English grabbing a partial
+  // match (e.g. just "17h") and leaving the rest of a French date in the title.
   let dueDate: Date | null = null;
   const opts = tzOffset === undefined ? { forwardDate: true } : { forwardDate: true, timezone: tzOffset };
   const candidates = [...chrono.parse(text, now, opts), ...chrono.fr.parse(text, now, opts)];

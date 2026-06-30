@@ -29,7 +29,7 @@ export const OSS_DEPENDENCIES: OssDep[] = [
   { name: 'zod', license: 'MIT', url: 'https://github.com/colinhacks/zod' },
   { name: 'argon2', license: 'MIT', url: 'https://github.com/ranisalt/node-argon2' },
   { name: 'jsonwebtoken', license: 'MIT', url: 'https://github.com/auth0/node-jsonwebtoken' },
-  { name: 'chrono-node', license: 'MIT', url: 'https://github.com/wanasit/chrono' },
+  { name: 'chrono-i18n', license: 'MIT', url: 'https://github.com/jacquesh82/chrono-i18n' },
   { name: 'dotenv', license: 'BSD-2-Clause', url: 'https://github.com/motdotla/dotenv' },
   { name: 'nodemailer', license: 'MIT', url: 'https://github.com/nodemailer/nodemailer' },
   { name: 'mjml', license: 'MIT', url: 'https://github.com/mjmlio/mjml' },

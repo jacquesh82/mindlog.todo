@@ -1,5 +1,5 @@
 /** Kinds of generative AI activity recorded for transparency / cost tracking. */
-export const AI_LOG_KINDS = ['ask', 'extract_tasks', 'summarize'] as const;
+export const AI_LOG_KINDS = ['ask', 'extract_tasks', 'summarize', 'cleanup_drawing'] as const;
 export type AiLogKind = (typeof AI_LOG_KINDS)[number];
 
 export interface AiLog {

@@ -381,6 +381,18 @@ export const api = {
       body: JSON.stringify({ query, k, notebookIds }),
     });
   },
+  /** AI: redraw a rough canvas sketch (primitive shapes) into a clean SVG. */
+  cleanupDrawing(body: {
+    shapes: unknown[];
+    instruction?: string;
+    width: number;
+    height: number;
+  }): Promise<{ svg: string }> {
+    return request<{ svg: string }>('/api/v1/notes/draw/cleanup', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
 
   // attachments (feed the RAG)
   listAttachments(taskId: string): Promise<Attachment[]> {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { useI18n } from '../i18n';
+import { NotesDraw, type DrawBoxData, type DrawShape } from './NotesDraw';
 import type { Label, Project } from '../types';
 
 // A OneNote-style page canvas: double-click empty space to drop a movable text
@@ -14,6 +15,12 @@ interface Box {
   y: number;
   w: number;
   html: string;
+  /** 'text' (default, legacy) or 'draw' (SVG sketch block). */
+  kind?: 'text' | 'draw';
+  // Draw-block only:
+  h?: number;
+  shapes?: DrawShape[];
+  aiSvg?: string;
 }
 
 const rid = () => Math.random().toString(36).slice(2, 10);
@@ -96,6 +103,8 @@ export function NotesEditor({ initialContent, onChange, onCreateTask, projects, 
   const canvasRef = useRef<HTMLDivElement>(null);
   const [ac, setAc] = useState<AutoComplete | null>(null);
   const [acHi, setAcHi] = useState(0);
+  // Block-type chooser shown on double-click (canvas-relative position).
+  const [chooser, setChooser] = useState<{ x: number; y: number } | null>(null);
 
   const acItems = ac
     ? (ac.sigil === '#' ? projects.filter((p) => !p.isInbox) : labels)
@@ -197,13 +206,27 @@ export function NotesEditor({ initialContent, onChange, onCreateTask, projects, 
     });
   }
 
-  function addBoxAt(clientX: number, clientY: number) {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const box: Box = { id: rid(), x: clientX - rect.left, y: clientY - rect.top, w: 360, html: '' };
+  function addTextBoxAt(cx: number, cy: number) {
+    const box: Box = { id: rid(), kind: 'text', x: cx, y: cy, w: 360, html: '' };
     commit([...boxes, box]);
     setActive(box.id);
     requestAnimationFrame(() => document.getElementById(`box-${box.id}`)?.focus());
+  }
+
+  function addDrawBoxAt(cx: number, cy: number) {
+    const box: Box = { id: rid(), kind: 'draw', x: cx, y: cy, w: 360, h: 240, html: '', shapes: [] };
+    commit([...boxes, box]);
+    setActive(box.id);
+  }
+
+  /** Merge a patch into a draw box (shapes/position/size/aiSvg) and persist. */
+  function updateDrawBox(id: string, patch: Partial<Box>) {
+    setBoxes((bs) => {
+      const next = bs.map((b) => (b.id === id ? { ...b, ...patch } : b));
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => onChange(JSON.stringify({ boxes: next })), 500);
+      return next;
+    });
   }
 
   // Drag handling.
@@ -497,7 +520,9 @@ export function NotesEditor({ initialContent, onChange, onCreateTask, projects, 
     <div
       ref={canvasRef}
       onDoubleClick={(e) => {
-        if (e.target === canvasRef.current) addBoxAt(e.clientX, e.clientY);
+        if (e.target !== canvasRef.current) return;
+        const rect = canvasRef.current.getBoundingClientRect();
+        setChooser({ x: e.clientX - rect.left, y: e.clientY - rect.top });
       }}
       className="relative min-h-[70vh] w-full"
       title={t('notes.canvasHint')}
@@ -505,7 +530,21 @@ export function NotesEditor({ initialContent, onChange, onCreateTask, projects, 
       {boxes.length === 0 && (
         <p className="pointer-events-none absolute left-4 top-4 text-sm text-muted">{t('notes.canvasHint')}</p>
       )}
-      {boxes.map((b) => (
+      {boxes.map((b) => {
+        if (b.kind === 'draw') {
+          return (
+            <NotesDraw
+              key={b.id}
+              box={{ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h ?? 240, shapes: b.shapes ?? [], aiSvg: b.aiSvg }}
+              active={active === b.id}
+              canvasW={canvasW}
+              onActivate={() => setActive(b.id)}
+              onChange={(patch: Partial<DrawBoxData>) => updateDrawBox(b.id, patch)}
+              onDelete={() => removeBox(b.id)}
+            />
+          );
+        }
+        return (
         <div
           key={b.id}
           className={`absolute rounded-md border bg-surface ${active === b.id ? 'border-brand shadow-md' : 'border-line/50 shadow-sm hover:border-line'}`}
@@ -595,7 +634,32 @@ export function NotesEditor({ initialContent, onChange, onCreateTask, projects, 
             />
           )}
         </div>
-      ))}
+        );
+      })}
+
+      {chooser && (
+        <>
+          <div className="fixed inset-0 z-[1190]" onMouseDown={() => setChooser(null)} />
+          <div
+            className="absolute z-[1200] flex overflow-hidden rounded-md border border-line bg-surface text-sm shadow-lg"
+            style={{ left: chooser.x, top: chooser.y }}
+          >
+            <button
+              onClick={() => { addTextBoxAt(chooser.x, chooser.y); setChooser(null); }}
+              className="flex items-center gap-1.5 px-3 py-2 text-ink hover:bg-brand-soft hover:text-brand"
+            >
+              <span>📝</span> {t('notes.blockText')}
+            </button>
+            <span className="w-px bg-line" />
+            <button
+              onClick={() => { addDrawBoxAt(chooser.x, chooser.y); setChooser(null); }}
+              className="flex items-center gap-1.5 px-3 py-2 text-ink hover:bg-brand-soft hover:text-brand"
+            >
+              <span>✏️</span> {t('notes.blockDraw')}
+            </button>
+          </div>
+        </>
+      )}
 
       {ac && acItems.length > 0 && (
         <ul

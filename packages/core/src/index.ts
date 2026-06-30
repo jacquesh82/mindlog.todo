@@ -81,6 +81,12 @@ export * as exportService from './service/export.service.js';
 export { askTasks } from './rag/ask.js';
 export { extractTasksFromPage, type ExtractTasksResult } from './rag/extract-tasks.js';
 export { summarizeNotebook } from './rag/summarize-notebook.js';
+export {
+  cleanupDrawing,
+  type CleanupDrawingInput,
+  type CleanupDrawingResult,
+  type DrawShape,
+} from './rag/cleanup-drawing.js';
 
 // Change bus — REST & MCP write paths emit here; the SSE endpoint subscribes.
 export { emitChange, subscribeChanges, type ChangeEvent, type ChangeEntity } from './service/changes.js';

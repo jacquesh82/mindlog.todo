@@ -1,4 +1,5 @@
 import {
+  cleanupDrawing,
   extractTasksFromPage,
   notebookCreateSchema,
   notebookUpdateSchema,
@@ -25,6 +26,28 @@ notesRouter.post('/search', async (req, res) => {
   const { query, k, notebookIds } = noteSearchSchema.parse(req.body);
   const scope = notebookIds?.length ? { notebookIds } : undefined;
   res.json(await noteService.searchPages(userId(req), query, k, scope));
+});
+
+// AI: redraw a rough canvas sketch (list of primitive shapes) into a clean SVG.
+const drawShapeSchema = z.object({
+  type: z.string(),
+  x: z.number(),
+  y: z.number(),
+  w: z.number(),
+  h: z.number(),
+  stroke: z.string().optional(),
+  fill: z.string().optional(),
+  fillStyle: z.string().optional(),
+  text: z.string().optional(),
+});
+const drawCleanupSchema = z.object({
+  shapes: z.array(drawShapeSchema).min(1),
+  instruction: z.string().max(200).optional(),
+  width: z.number().positive().max(4000),
+  height: z.number().positive().max(4000),
+});
+notesRouter.post('/draw/cleanup', async (req, res) => {
+  res.json(await cleanupDrawing(userId(req), drawCleanupSchema.parse(req.body)));
 });
 
 // Notebooks

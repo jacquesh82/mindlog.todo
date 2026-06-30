@@ -11,7 +11,7 @@ import {
   type PageUpdateInput,
 } from '../domain/note.js';
 import { cloudHosted, config } from '../config.js';
-import { isRelevantHit, significantTerms } from '../domain/search-relevance.js';
+import { containsAnyTerm, isRelevantHit, mergeByScore, significantTerms } from '../domain/search-relevance.js';
 import { embedOne } from '../embeddings/provider.js';
 import { BadRequest, NotFound, QuotaExceeded } from '../errors.js';
 import * as repo from '../repository/note.repo.js';
@@ -110,8 +110,13 @@ export async function setNotebookRag(userId: string, notebookId: string, inRag: 
 }
 
 /**
- * Semantic search over the user's RAG-enabled note pages, optionally scoped to
- * specific notebooks and/or pages.
+ * Search the user's note pages, optionally scoped to specific notebooks/pages.
+ *
+ * Two branches are merged so a query never silently misses a literal match:
+ *   - lexical: pages whose title/content literally contain a query term — works
+ *     on EVERY page, even ones not embedded into the RAG (score 1, ranked top);
+ *   - semantic: k-NN over RAG-enabled pages, kept when above the floor and a
+ *     strong match or sharing a term (catches paraphrases the lexical pass misses).
  */
 export async function searchPages(
   userId: string,
@@ -119,18 +124,30 @@ export async function searchPages(
   k = 5,
   scope?: { notebookIds?: string[]; pageIds?: string[] },
 ): Promise<NotePageHit[]> {
-  const vec = await embedOne(query);
-  if (vec.length === 0) return [];
-  // Keep only pages that share a query term (matched on the title) OR are a
-  // strong semantic match, above the absolute floor — so an unrelated query
-  // doesn't surface every RAG page at 1–8% similarity.
   const terms = significantTerms(query);
-  return (await repo.search(userId, vec, k, scope)).filter((h) =>
+  // Embed for the semantic branch, but never let a provider failure (or empty
+  // vector) block the lexical branch from finding literal matches.
+  const vec = await embedOne(query).catch(() => [] as number[]);
+
+  const [lexicalPages, semanticHits] = await Promise.all([
+    repo.searchLexical(userId, terms, k, scope),
+    vec.length ? repo.search(userId, vec, k, scope) : Promise.resolve([] as NotePageHit[]),
+  ]);
+
+  // Re-verify lexical hits against the page's de-HTML'd text so an ILIKE that
+  // matched a markup token (e.g. "<span>") isn't reported as a content match.
+  const lexical: NotePageHit[] = lexicalPages
+    .filter((p) => containsAnyTerm(notePageText(p.title, p.content), terms))
+    .map(({ content: _c, ...rest }) => ({ ...rest, score: 1 }));
+
+  const semantic = semanticHits.filter((h) =>
     isRelevantHit(h.score, h.title, terms, {
       minScore: config.searchMinScore,
       strongScore: config.searchStrongScore,
     }),
   );
+
+  return mergeByScore(lexical, semantic, k);
 }
 
 export async function deletePage(userId: string, id: string): Promise<void> {

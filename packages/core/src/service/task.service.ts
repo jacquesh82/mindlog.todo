@@ -15,7 +15,7 @@ import {
   referencedNames,
 } from '../domain/filter-query.js';
 import { parseQuickAdd, type QuickAddParse } from '../domain/quickadd.js';
-import { isRelevantHit, significantTerms } from '../domain/search-relevance.js';
+import { isRelevantHit, mergeByScore, significantTerms } from '../domain/search-relevance.js';
 import { nextOccurrence, normalizeRecurrence, parseRecurrence } from '../domain/recurrence.js';
 import * as attachmentRepo from '../repository/attachment.repo.js';
 import { emitChange } from './changes.js';
@@ -296,19 +296,28 @@ export async function searchTasks(
   userId: string,
   input: TaskSearchInput,
 ): Promise<TaskSearchHit[]> {
-  const vec = await embedOne(input.query);
-  if (vec.length === 0) return [];
-  // Keep only hits that share a query term OR are a strong semantic match, above
-  // the absolute floor — so an off-topic query (e.g. "wifi" against a grocery
-  // list) or near-centroid junk returns nothing instead of k irrelevant tasks.
   const terms = significantTerms(input.query);
-  const hits = (await repo.search(userId, vec, input.k, input.status)).filter((h) =>
+  // Embed for the semantic branch, but never let a provider failure (or empty
+  // vector) block the lexical branch from finding literal matches.
+  const vec = await embedOne(input.query).catch(() => [] as number[]);
+
+  const [lexical, semanticHits] = await Promise.all([
+    // Literal matches work on every task, even ones without an embedding.
+    repo.searchLexical(userId, terms, input.k, input.status),
+    // Semantic k-NN catches paraphrases; keep only hits that share a term OR are
+    // a strong match above the floor — so an off-topic query returns nothing
+    // instead of k irrelevant tasks.
+    vec.length ? repo.search(userId, vec, input.k, input.status) : Promise.resolve([] as TaskSearchHit[]),
+  ]);
+
+  const semantic = semanticHits.filter((h) =>
     isRelevantHit(h.score, taskEmbeddingText(h), terms, {
       minScore: config.searchMinScore,
       strongScore: config.searchStrongScore,
     }),
   );
-  return attachLabels(hits);
+
+  return attachLabels(mergeByScore(lexical, semantic, input.k));
 }
 
 /** Preview of a Quick Add line, with the project/label names it would resolve. */

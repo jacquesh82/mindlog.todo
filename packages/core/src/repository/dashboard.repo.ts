@@ -51,6 +51,8 @@ export async function taskStats(userId: string): Promise<TaskStatsRow> {
 export interface NoteStatsRow {
   notebooks: number;
   pages: number;
+  /** Pages opted into the RAG (reachable by semantic search / "Ask AI"). */
+  ragPages: number;
   storageBytes: number;
 }
 
@@ -60,6 +62,7 @@ export async function noteStats(userId: string): Promise<NoteStatsRow> {
     SELECT
       (SELECT count(*) FROM notebooks  WHERE user_id = $1)                              AS notebooks,
       (SELECT count(*) FROM note_pages WHERE user_id = $1)                              AS pages,
+      (SELECT count(*) FROM note_pages WHERE user_id = $1 AND in_rag)                   AS rag_pages,
       (SELECT COALESCE(sum(octet_length(content)), 0) FROM note_pages WHERE user_id = $1) AS storage_bytes`,
     [userId],
   );
@@ -67,6 +70,7 @@ export async function noteStats(userId: string): Promise<NoteStatsRow> {
   return {
     notebooks: Number(r.notebooks ?? 0),
     pages: Number(r.pages ?? 0),
+    ragPages: Number(r.rag_pages ?? 0),
     storageBytes: Number(r.storage_bytes ?? 0),
   };
 }

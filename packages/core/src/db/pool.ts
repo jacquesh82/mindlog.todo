@@ -23,3 +23,27 @@ export async function closePool(): Promise<void> {
 export function toVectorLiteral(vec: number[]): string {
   return `[${vec.join(',')}]`;
 }
+
+let unaccentOk: boolean | null = null;
+
+/**
+ * Whether the `unaccent` extension is installed (cached after the first check).
+ * Lexical search uses it to fold accents ("conférence" ↔ "conference"); when it
+ * isn't present (e.g. a managed Postgres without the contrib module) search
+ * degrades to case-only folding instead of failing outright.
+ */
+export async function hasUnaccent(): Promise<boolean> {
+  if (unaccentOk !== null) return unaccentOk;
+  try {
+    const { rows } = await getPool().query(`SELECT 1 FROM pg_extension WHERE extname = 'unaccent'`);
+    unaccentOk = rows.length > 0;
+  } catch {
+    unaccentOk = false;
+  }
+  return unaccentOk;
+}
+
+/** SQL expression folding `col` to lowercase (and accent-free when available). */
+export function foldExpr(col: string, unaccent: boolean): string {
+  return unaccent ? `unaccent(lower(${col}))` : `lower(${col})`;
+}

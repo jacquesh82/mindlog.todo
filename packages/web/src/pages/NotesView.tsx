@@ -421,6 +421,14 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
                 >
                   {page.inRag ? `🧠 ${t('notes.ragOnLabel')}` : `🧠 ${t('notes.ragAdd')}`}
                 </button>
+                {!page.inRag && (
+                  <span
+                    title={t('notes.ragOffNotice')}
+                    className="inline-flex items-center gap-1 rounded-md border border-amber-400/60 bg-amber-50 px-2 py-0.5 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-400"
+                  >
+                    ⚠️ {t('notes.ragOffBadge')}
+                  </span>
+                )}
                 <button
                   onClick={() => void convertPageToTasks()}
                   disabled={aiBusy}

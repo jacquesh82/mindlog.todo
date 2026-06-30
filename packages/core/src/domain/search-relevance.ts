@@ -29,6 +29,30 @@ export function significantTerms(query: string): string[] {
     .filter((t) => t.length >= 2);
 }
 
+/** True when at least one (already-folded) term appears literally in `text`. */
+export function containsAnyTerm(text: string, terms: string[]): boolean {
+  if (terms.length === 0) return false;
+  const hay = fold(text);
+  return terms.some((term) => hay.includes(term));
+}
+
+/**
+ * Merge two scored hit lists (e.g. lexical + semantic) into one: dedupe by id,
+ * keep the higher-scoring copy of each, sort by score descending, cap at `k`.
+ */
+export function mergeByScore<T extends { id: string; score: number }>(
+  a: T[],
+  b: T[],
+  k: number,
+): T[] {
+  const byId = new Map<string, T>();
+  for (const h of [...a, ...b]) {
+    const prev = byId.get(h.id);
+    if (!prev || h.score > prev.score) byId.set(h.id, h);
+  }
+  return [...byId.values()].sort((x, y) => y.score - x.score).slice(0, k);
+}
+
 export interface RelevanceThresholds {
   /** Absolute cosine floor: below this a hit is always dropped. */
   minScore: number;
@@ -49,7 +73,5 @@ export function isRelevantHit(
 ): boolean {
   if (score < minScore) return false;
   if (score >= strongScore) return true;
-  if (terms.length === 0) return false;
-  const hay = fold(text);
-  return terms.some((term) => hay.includes(term));
+  return containsAnyTerm(text, terms);
 }

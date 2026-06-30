@@ -436,6 +436,14 @@ function migrations(): Migration[] {
         );
       `,
     },
+    {
+      // Accent-insensitive lexical search: `unaccent('Conférence')` -> 'Conference'
+      // so a folded query term matches accented note/task text. Used by the
+      // ILIKE fallback in note/task search (semantic k-NN alone missed literal
+      // matches that weren't embedded or weren't in the top-k).
+      id: '024_unaccent_search',
+      sql: /* sql */ `CREATE EXTENSION IF NOT EXISTS unaccent;`,
+    },
   ];
 }
 

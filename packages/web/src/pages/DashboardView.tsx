@@ -42,6 +42,7 @@ export function DashboardView() {
   const quotaPct = s.notes.storageQuota
     ? Math.min(100, Math.round((s.notes.storageBytes / s.notes.storageQuota) * 100))
     : 0;
+  const ragPct = s.notes.pages ? Math.round((s.notes.ragPages / s.notes.pages) * 100) : 0;
 
   const priorityColors = ['--color-p1', '--color-p2', '--color-p3', '--color-p4'];
   const prioritySlices: Slice[] = [
@@ -113,10 +114,33 @@ export function DashboardView() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label={t('dash.notebooks')} value={s.notes.notebooks} accent />
         <Kpi label={t('dash.pages')} value={s.notes.pages} />
+        <Kpi label={t('dash.ragPages')} value={`${s.notes.ragPages}/${s.notes.pages}`} />
         <Kpi label={t('dash.storage')} value={mb(s.notes.storageBytes)} />
-        <Kpi label={t('dash.quotaUsed')} value={`${quotaPct}%`} />
       </div>
-      <div className="mt-2 h-2 overflow-hidden rounded bg-line">
+
+      {/* AI-search coverage: how many pages are reachable by semantic "Ask AI". */}
+      <div className="mt-3 rounded-xl border border-line bg-surface p-4">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-semibold uppercase tracking-wide text-muted">{t('dash.ragCoverage')}</span>
+          <span className="text-muted">{ragPct}%</span>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded bg-line">
+          <div className="h-full bg-brand" style={{ width: `${ragPct}%` }} />
+        </div>
+        <p className="mt-1 text-xs text-muted">
+          {t('dash.ragCoverageHint', {
+            rag: s.notes.ragPages,
+            total: s.notes.pages,
+            out: s.notes.pages - s.notes.ragPages,
+          })}
+        </p>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between text-xs text-muted">
+        <span>{t('dash.quotaUsed')}</span>
+        <span>{quotaPct}%</span>
+      </div>
+      <div className="mt-1 h-2 overflow-hidden rounded bg-line">
         <div className="h-full bg-brand" style={{ width: `${quotaPct}%` }} />
       </div>
       <p className="mt-1 text-xs text-muted">

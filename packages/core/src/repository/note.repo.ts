@@ -6,7 +6,7 @@ import type {
   NotePageSummary,
   PageUpdateInput,
 } from '../domain/note.js';
-import { getPool, toVectorLiteral } from '../db/pool.js';
+import { foldExpr, getPool, hasUnaccent, toVectorLiteral } from '../db/pool.js';
 
 const NB_COLS = `id, user_id, name, color, position, created_at, updated_at`;
 const PAGE_COLS = `id, notebook_id, user_id, title, content, position, in_rag, color, created_at, updated_at`;
@@ -137,6 +137,47 @@ export async function search(
     const { content: _c, ...rest } = page(r);
     return { ...rest, score: Number(r.score ?? 0) };
   });
+}
+
+/**
+ * Lexical (literal substring) search over a user's note pages — title and
+ * content, accent- and case-insensitive. Unlike {@link search} this is NOT
+ * gated on `in_rag`/`embedding`, so a literal word is found even in pages that
+ * were never embedded. `terms` must already be folded (lowercased, unaccented);
+ * a page matches when ANY term appears. Returns full pages (with content) so the
+ * caller can re-verify the match against the page's human-readable text.
+ */
+export async function searchLexical(
+  userId: string,
+  terms: string[],
+  k: number,
+  scope?: { notebookIds?: string[]; pageIds?: string[] },
+): Promise<NotePage[]> {
+  if (terms.length === 0) return [];
+  const params: unknown[] = [userId];
+  let where = 'user_id = $1';
+  if (scope?.notebookIds?.length) {
+    params.push(scope.notebookIds);
+    where += ` AND notebook_id = ANY($${params.length}::uuid[])`;
+  }
+  if (scope?.pageIds?.length) {
+    params.push(scope.pageIds);
+    where += ` AND id = ANY($${params.length}::uuid[])`;
+  }
+  const ua = await hasUnaccent();
+  const ors = terms.map((term) => {
+    params.push(`%${term}%`);
+    const idx = params.length;
+    return `(${foldExpr('title', ua)} LIKE $${idx} OR ${foldExpr('content', ua)} LIKE $${idx})`;
+  });
+  where += ` AND (${ors.join(' OR ')})`;
+  params.push(k);
+  const kIdx = params.length;
+  const { rows } = await getPool().query<PageRow>(
+    `SELECT ${PAGE_COLS} FROM note_pages WHERE ${where} ORDER BY updated_at DESC LIMIT $${kIdx}`,
+    params,
+  );
+  return rows.map(page);
 }
 
 export async function countPages(userId: string, notebookId: string): Promise<number> {

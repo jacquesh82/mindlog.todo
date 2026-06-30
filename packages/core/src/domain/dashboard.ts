@@ -15,6 +15,8 @@ export interface DashboardStats {
   notes: {
     notebooks: number;
     pages: number;
+    /** Pages opted into the RAG (the rest are invisible to semantic "Ask AI"). */
+    ragPages: number;
     storageBytes: number;
     storageQuota: number;
   };

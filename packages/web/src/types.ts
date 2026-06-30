@@ -179,6 +179,7 @@ export interface DashboardStats {
   notes: {
     notebooks: number;
     pages: number;
+    ragPages: number;
     storageBytes: number;
     storageQuota: number;
   };

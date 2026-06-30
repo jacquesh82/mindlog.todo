@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isRelevantHit, significantTerms } from '../src/domain/search-relevance.js';
+import {
+  containsAnyTerm,
+  isRelevantHit,
+  mergeByScore,
+  significantTerms,
+} from '../src/domain/search-relevance.js';
 
 const TH = { minScore: 0.2, strongScore: 0.5 };
 
@@ -36,5 +41,30 @@ describe('isRelevantHit', () => {
 
   it('matches accent-insensitively against the hit text', () => {
     expect(isRelevantHit(0.3, 'la conference annuelle', significantTerms('Conférence'), TH)).toBe(true);
+  });
+});
+
+describe('containsAnyTerm', () => {
+  it('is true when any folded term appears in the text', () => {
+    expect(containsAnyTerm('quarterly budget plan', significantTerms('budget hiring'))).toBe(true);
+  });
+
+  it('folds diacritics on both sides', () => {
+    expect(containsAnyTerm('la Conférence annuelle', significantTerms('conference'))).toBe(true);
+  });
+
+  it('is false with no terms or no match', () => {
+    expect(containsAnyTerm('anything', [])).toBe(false);
+    expect(containsAnyTerm('office plants', significantTerms('wifi router'))).toBe(false);
+  });
+});
+
+describe('mergeByScore', () => {
+  it('dedupes by id keeping the higher score, sorts desc, caps at k', () => {
+    const a = [{ id: '1', score: 1 }, { id: '2', score: 1 }];
+    const b = [{ id: '1', score: 0.4 }, { id: '3', score: 0.9 }];
+    expect(mergeByScore(a, b, 10).map((h) => h.id)).toEqual(['1', '2', '3']);
+    expect(mergeByScore(a, b, 10).find((h) => h.id === '1')!.score).toBe(1);
+    expect(mergeByScore(a, b, 2)).toHaveLength(2);
   });
 });

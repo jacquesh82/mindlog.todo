@@ -46,7 +46,7 @@ describe('notes (OneNote-lite)', () => {
     expect(after.status).toBe(404);
   });
 
-  it('opts a page into the RAG so it becomes semantically searchable', async () => {
+  it('finds a page by keyword even when it is not in the RAG; RAG adds semantic reach', async () => {
     const reg = await request(app).post('/api/v1/auth/register').send({ email: 'rag@ex.com', password: 'password123' });
     const token = reg.body.accessToken as string;
     const userId = reg.body.user.id as string;
@@ -56,17 +56,19 @@ describe('notes (OneNote-lite)', () => {
       .set(auth(token))
       .send({ title: 'Budget', content: 'quarterly budget and hiring plan' });
 
-    // Not in RAG yet → no hits.
-    expect(await noteService.searchPages(userId, 'budget hiring', 5)).toHaveLength(0);
+    // Keyword search finds a literal match even before the page is in the RAG
+    // (lexical branch — no embedding required). This is the core search fix.
+    const beforeRag = await noteService.searchPages(userId, 'budget hiring', 5);
+    expect(beforeRag.map((h) => h.id)).toContain(page.body.id);
 
-    // Opt in → embedded → searchable.
+    // Opt in → also reachable through semantic search.
     await request(app).patch(`/api/v1/notes/pages/${page.body.id}`).set(auth(token)).send({ inRag: true });
     const hits = await noteService.searchPages(userId, 'budget hiring', 5);
     expect(hits.map((h) => h.id)).toContain(page.body.id);
 
-    // Opt out → no longer searchable.
-    await request(app).patch(`/api/v1/notes/pages/${page.body.id}`).set(auth(token)).send({ inRag: false });
-    expect(await noteService.searchPages(userId, 'budget hiring', 5)).toHaveLength(0);
+    // A query that shares no word and isn't a semantic match returns nothing —
+    // the relevance floor still rejects unrelated junk.
+    expect(await noteService.searchPages(userId, 'wifi router firmware', 5)).toHaveLength(0);
   });
 
   it('adds a whole notebook to the RAG and scopes search to it', async () => {
@@ -77,17 +79,34 @@ describe('notes (OneNote-lite)', () => {
     const b = await request(app).post('/api/v1/notes/notebooks').set(auth(token)).send({ name: 'B' });
     await request(app).post(`/api/v1/notes/notebooks/${a.body.id}/pages`).set(auth(token)).send({ title: 'p1', content: 'budget planning notes' });
     await request(app).post(`/api/v1/notes/notebooks/${a.body.id}/pages`).set(auth(token)).send({ title: 'p2', content: 'budget review' });
-    await request(app).post(`/api/v1/notes/notebooks/${b.body.id}/pages`).set(auth(token)).send({ title: 'p3', content: 'budget elsewhere' });
+    // B's page shares no word with the query, so it stays out of results.
+    await request(app).post(`/api/v1/notes/notebooks/${b.body.id}/pages`).set(auth(token)).send({ title: 'p3', content: 'logistics meeting notes' });
 
     // Add all of notebook A to the RAG in one go.
     const bulk = await request(app).post(`/api/v1/notes/notebooks/${a.body.id}/rag`).set(auth(token)).send({ inRag: true });
     expect(bulk.body.updated).toBe(2);
 
-    // Scoped search to A returns A's pages; scoped to B (not in RAG) is empty.
+    // Scoped search to A returns A's pages; scoped to B finds nothing for this
+    // query (no keyword match there, and B isn't in the RAG).
     const inA = await noteService.searchPages(userId, 'budget', 10, { notebookIds: [a.body.id] });
     expect(inA.length).toBe(2);
     const inB = await noteService.searchPages(userId, 'budget', 10, { notebookIds: [b.body.id] });
     expect(inB.length).toBe(0);
+  });
+
+  it('finds a page by a literal word in its body that is not in the RAG', async () => {
+    const reg = await request(app).post('/api/v1/auth/register').send({ email: 'lexnote@ex.com', password: 'password123' });
+    const token = reg.body.accessToken as string;
+    const userId = reg.body.user.id as string;
+    const nb = await request(app).post('/api/v1/notes/notebooks').set(auth(token)).send({ name: 'NB' });
+    // Accented body word, plain-keyword query → matched via unaccent folding.
+    const page = await request(app)
+      .post(`/api/v1/notes/notebooks/${nb.body.id}/pages`)
+      .set(auth(token))
+      .send({ title: 'Untitled', content: 'compte rendu de la conférence annuelle' });
+
+    const hits = await noteService.searchPages(userId, 'conference', 5);
+    expect(hits.map((h) => h.id)).toContain(page.body.id);
   });
 
   it('duplicates a page within its notebook', async () => {

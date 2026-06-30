@@ -1,5 +1,5 @@
 import type { Task, TaskListQuery, TaskSearchHit, TaskStatus, TaskUpdateInput } from '../domain/task.js';
-import { getPool, toVectorLiteral } from '../db/pool.js';
+import { foldExpr, getPool, hasUnaccent, toVectorLiteral } from '../db/pool.js';
 
 const COLS = `id, user_id, parent_id, project_id, section_id, title, description,
   assignee, due_date, deadline::text AS deadline, duration_minutes, recurrence_rule,
@@ -302,6 +302,45 @@ export async function labelsByTask(taskIds: string[]): Promise<Map<string, strin
     else map.set(r.task_id, [r.label_id]);
   }
   return map;
+}
+
+/**
+ * Lexical (literal substring) search over a user's tasks — title, description
+ * and assignee, accent- and case-insensitive. Unlike {@link search} it doesn't
+ * require an embedding, so a literal word is found even on tasks that were never
+ * embedded. `terms` must already be folded (lowercased, unaccented); a task
+ * matches when ANY term appears. Matched hits get score 1 (ranked above k-NN).
+ */
+export async function searchLexical(
+  userId: string,
+  terms: string[],
+  k: number,
+  status?: TaskStatus,
+): Promise<TaskSearchHit[]> {
+  if (terms.length === 0) return [];
+  const params: unknown[] = [userId];
+  let where = 'user_id = $1';
+  if (status) {
+    params.push(status);
+    where += ` AND status = $${params.length}`;
+  }
+  const ua = await hasUnaccent();
+  const ors = terms.map((term) => {
+    params.push(`%${term}%`);
+    const idx = params.length;
+    return `(${foldExpr('title', ua)} LIKE $${idx}
+      OR ${foldExpr("coalesce(description,'')", ua)} LIKE $${idx}
+      OR ${foldExpr("coalesce(assignee,'')", ua)} LIKE $${idx})`;
+  });
+  where += ` AND (${ors.join(' OR ')})`;
+  params.push(k);
+  const kIdx = params.length;
+  const { rows } = await getPool().query<Row>(
+    `SELECT ${COLS}, 1 AS score FROM tasks WHERE ${where}
+     ORDER BY updated_at DESC LIMIT $${kIdx}`,
+    params,
+  );
+  return rows.map((r) => ({ ...mapRow(r), score: Number(r.score ?? 0) }));
 }
 
 export async function search(

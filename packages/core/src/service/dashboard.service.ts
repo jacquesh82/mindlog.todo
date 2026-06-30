@@ -25,6 +25,7 @@ export async function getDashboard(userId: string): Promise<DashboardStats> {
     notes: {
       notebooks: notes.notebooks,
       pages: notes.pages,
+      ragPages: notes.ragPages,
       storageBytes: notes.storageBytes,
       storageQuota: USER_NOTES_QUOTA,
     },

@@ -5,6 +5,7 @@ import { useAuth } from './auth/AuthContext';
 import { AuthorizePage } from './auth/AuthorizePage';
 import { LoginPage } from './auth/LoginPage';
 import { ResetPasswordPage } from './auth/ResetPasswordPage';
+import { Header } from './components/Header';
 import { MainView } from './components/MainView';
 import { Sidebar, type SidebarCounts } from './components/Sidebar';
 import { startOfToday, startOfTomorrow } from './format';
@@ -155,7 +156,9 @@ export function App() {
         onSelect={setView}
         onReload={reloadSidebar}
       />
-      <main className="flex-1 overflow-y-auto">
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Header onAdded={reloadSidebar} />
+        <main className="flex-1 overflow-y-auto">
         <SelectionProvider>
         {(() => {
           if (view.kind === 'settings') return <SettingsPage />;
@@ -187,7 +190,8 @@ export function App() {
           );
         })()}
         </SelectionProvider>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

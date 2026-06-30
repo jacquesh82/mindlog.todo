@@ -11,6 +11,8 @@ type Dict = Record<string, string>;
 
 const en: Dict = {
   'app.name': 'mindlog.todo',
+  'header.quickAdd': 'Quick add a task…',
+  'header.addFailed': 'Could not add the task.',
   'nav.inbox': 'Inbox',
   'nav.today': 'Today',
   'nav.upcoming': 'Upcoming',
@@ -359,6 +361,8 @@ const en: Dict = {
 
 const fr: Dict = {
   'app.name': 'mindlog.todo',
+  'header.quickAdd': 'Ajouter une tâche rapidement…',
+  'header.addFailed': "Impossible d'ajouter la tâche.",
   'nav.inbox': 'Boîte de réception',
   'nav.today': "Aujourd'hui",
   'nav.upcoming': 'À venir',

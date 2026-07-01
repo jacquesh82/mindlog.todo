@@ -70,6 +70,10 @@ interface Props {
   view: View;
   onSelect: (view: View) => void;
   onReload: () => void;
+  /** Mobile drawer open state (ignored on desktop, where the sidebar is static). */
+  open: boolean;
+  /** Dismiss the mobile drawer. */
+  onClose: () => void;
 }
 
 function Item({
@@ -110,7 +114,7 @@ function Item({
   );
 }
 
-export function Sidebar({ projects, labels, filters, karma, counts, view, onSelect, onReload }: Props) {
+export function Sidebar({ projects, labels, filters, karma, counts, view, onSelect, onReload, open, onClose }: Props) {
   const { t, lang, setLang } = useI18n();
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -156,7 +160,15 @@ export function Sidebar({ projects, labels, filters, karma, counts, view, onSele
     view.kind === k && (id === undefined || (view as { id?: string }).id === id);
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line bg-sidebar">
+    // Phones: an off-canvas navigation drawer that slides in from the left (we
+    // animate `left` rather than `transform` so the `position: fixed` modals
+    // rendered below aren't trapped in a transformed containing block). From
+    // `md` up it reverts to the classic static, always-visible sidebar.
+    <aside
+      className={`fixed inset-y-0 z-40 flex h-full w-[min(18rem,85vw)] shrink-0 flex-col border-r border-line bg-sidebar transition-[left] duration-200 ease-out md:static md:left-auto md:z-auto md:w-64 ${
+        open ? 'left-0' : '-left-full'
+      }`}
+    >
       <div className="flex items-center justify-between px-4 py-3">
         <span data-tour="welcome" className="flex items-center gap-2 font-semibold text-brand">
           {/* Milo mascot — enlarged so its (brand) color reads clearly; a future
@@ -175,6 +187,17 @@ export function Sidebar({ projects, labels, filters, karma, counts, view, onSele
             title="FR / EN"
           >
             {lang.toUpperCase()}
+          </button>
+          {/* Drawer close — only meaningful on phones. */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('common.close')}
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted hover:bg-line/60 hover:text-ink md:hidden"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
       </div>

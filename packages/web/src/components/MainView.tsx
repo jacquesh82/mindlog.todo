@@ -112,8 +112,8 @@ export function MainView({ view, projects, labels, filters, onDataChanged }: Pro
   const tree = sortTree(buildTree(tasks), sort);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-8 py-8">
-      <div className="mb-3 flex items-center justify-between">
+    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8 sm:py-8">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-bold text-ink">{titleFor(view, projects, labels, filters, t)}</h1>
         <SortBar
           sort={sort}

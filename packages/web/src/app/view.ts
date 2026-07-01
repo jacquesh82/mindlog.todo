@@ -4,7 +4,7 @@ export type View =
   | { kind: 'completed' }
   | { kind: 'notes'; pageId?: string }
   | { kind: 'dashboard' }
-  | { kind: 'search' }
+  | { kind: 'search'; mode?: 'search' | 'ask' }
   | { kind: 'inbox'; id: string }
   | { kind: 'project'; id: string }
   | { kind: 'label'; id: string }

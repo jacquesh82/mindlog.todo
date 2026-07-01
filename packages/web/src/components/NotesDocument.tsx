@@ -1,5 +1,6 @@
 import { Suspense, lazy, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
+import { useIsDesktop } from '../useIsDesktop';
 import { parsePageContent, serializePageContent, type PageMode } from '../notes/content';
 import { NotesEditor } from './NotesEditor';
 import type { RawViewMode } from './NotesRawEditor';
@@ -32,6 +33,11 @@ export function NotesDocument({ pageId, initialContent, onChange, onCreateTask, 
   const [markdown, setMarkdown] = useState(init.markdown);
   const [viewMode, setViewMode] = useState<RawViewMode>('split');
   const [splitDir, setSplitDir] = useState<'h' | 'v'>('h');
+  const isDesktop = useIsDesktop();
+  // Split view is too cramped on phones, so it (and the orientation toggle) are
+  // desktop-only; a phone falls back to the single-pane Editor.
+  const rawViews = isDesktop ? (['edit', 'split', 'preview'] as const) : (['edit', 'preview'] as const);
+  const effViewMode: RawViewMode = viewMode === 'split' && !isDesktop ? 'edit' : viewMode;
 
   function onBlocks(c: string) {
     setBlocksContent(c);
@@ -63,11 +69,11 @@ export function NotesDocument({ pageId, initialContent, onChange, onCreateTask, 
         {mode === 'raw' && (
           <>
             <div className="inline-flex overflow-hidden rounded-md border border-line">
-              {(['edit', 'split', 'preview'] as const).map((v) => (
-                <button key={v} onClick={() => setViewMode(v)} className={segSoft(viewMode === v)}>{t(`notes.view.${v}`)}</button>
+              {rawViews.map((v) => (
+                <button key={v} onClick={() => setViewMode(v)} className={segSoft(effViewMode === v)}>{t(`notes.view.${v}`)}</button>
               ))}
             </div>
-            {viewMode === 'split' && (
+            {effViewMode === 'split' && (
               <button
                 onClick={() => setSplitDir((d) => (d === 'h' ? 'v' : 'h'))}
                 className="rounded-md border border-line px-2 py-1 text-ink hover:bg-line/60"
@@ -92,7 +98,7 @@ export function NotesDocument({ pageId, initialContent, onChange, onCreateTask, 
           />
         ) : (
           <Suspense fallback={<div className="p-4 text-sm text-muted">{t('common.loading')}</div>}>
-            <NotesRawEditor key={`${pageId}:raw`} markdown={markdown} onChange={onMd} viewMode={viewMode} splitDir={splitDir} />
+            <NotesRawEditor key={`${pageId}:raw`} markdown={markdown} onChange={onMd} viewMode={effViewMode} splitDir={splitDir} />
           </Suspense>
         )}
       </div>

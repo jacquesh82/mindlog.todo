@@ -6,6 +6,8 @@ import { useToast } from '../toast';
 interface Props {
   /** Called after a task is created, so the sidebar counts can refresh. */
   onAdded: () => void;
+  /** Opens the mobile navigation drawer (hamburger). No-op affordance on desktop. */
+  onMenu: () => void;
 }
 
 /**
@@ -14,7 +16,7 @@ interface Props {
  * Submission goes through the same natural-language quick-add as the inline
  * composer (date/time + `#project` / `@label` parsing), then a toast confirms.
  */
-export function Header({ onAdded }: Props) {
+export function Header({ onAdded, onMenu }: Props) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [text, setText] = useState('');
@@ -37,7 +39,18 @@ export function Header({ onAdded }: Props) {
   }
 
   return (
-    <header className="flex h-14 shrink-0 items-center border-b border-line bg-surface px-4">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-line bg-surface px-3 md:px-4">
+      {/* Hamburger — reveals the navigation drawer on phones. */}
+      <button
+        type="button"
+        onClick={onMenu}
+        aria-label={t('nav.menu')}
+        className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted hover:bg-line/60 hover:text-ink md:hidden"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-6 w-6" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
       <form
         className="flex w-full max-w-2xl items-center gap-2 rounded-lg border border-line px-3 py-1.5 transition focus-within:border-brand"
         onSubmit={(e) => {

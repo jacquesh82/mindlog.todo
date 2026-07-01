@@ -10,13 +10,21 @@ export function SearchAskView({
   labels,
   onChanged,
   onOpenNote,
+  initialMode,
 }: {
   projects: Project[];
   labels: Label[];
   onChanged: () => void;
   onOpenNote: (pageId: string) => void;
+  /** Which action the Enter key triggers first — set by the Search / Ask AI tabs. */
+  initialMode?: 'search' | 'ask';
 }) {
   const { t } = useI18n();
+  // Primary action for the Enter key; follows the tab the user arrived from.
+  const [mode, setMode] = useState<'search' | 'ask'>(initialMode ?? 'search');
+  useEffect(() => {
+    if (initialMode) setMode(initialMode);
+  }, [initialMode]);
   const [editing, setEditing] = useState<Task | null>(null);
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [scope, setScope] = useState<string[]>([]); // selected notebook ids (empty = all)
@@ -58,17 +66,19 @@ export function SearchAskView({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-8 py-8">
-      <h1 className="mb-4 text-xl font-bold text-ink">{t('nav.search')}</h1>
+    <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8 sm:py-8">
+      <h1 className="mb-4 text-xl font-bold text-ink">
+        {mode === 'ask' ? t('nav.askAi') : t('nav.searchShort')}
+      </h1>
 
       <div className="flex gap-2">
         <input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void run('search')}
+          onKeyDown={(e) => e.key === 'Enter' && void run(mode)}
           placeholder={t('search.placeholder')}
-          className="flex-1 rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-brand"
+          className="min-w-0 flex-1 rounded-md border border-line px-3 py-2 text-sm outline-none focus:border-brand"
         />
         <button
           onClick={() => void run('search')}

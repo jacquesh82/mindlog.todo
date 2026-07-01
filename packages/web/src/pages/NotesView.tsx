@@ -4,6 +4,7 @@ import { useDialog } from '../dialog';
 import { useI18n } from '../i18n';
 import { useToast } from '../toast';
 import { NotesDocument } from '../components/NotesDocument';
+import { useIsDesktop } from '../useIsDesktop';
 import type { Label, Notebook, NotePage, NotePageSummary, Project } from '../types';
 
 // A OneNote-lite 3-pane workspace: notebooks | pages | editor.
@@ -38,6 +39,12 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
     }
   }, [railCollapsed]);
 
+  const isDesktop = useIsDesktop();
+  // Which single pane is visible on phones. Ignored on desktop (all show).
+  const [mobileView, setMobileView] = useState<'notebooks' | 'pages' | 'editor'>('notebooks');
+  // The collapsed vertical-tab rail is a desktop-only affordance.
+  const collapsed = railCollapsed && isDesktop;
+
   const reloadNotebooks = useCallback(() => {
     void api.listNotebooks().then((nbs) => {
       setNotebooks(nbs);
@@ -69,6 +76,7 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
         setActiveNb(p.notebookId);
         setPage(p);
         setSaved(true);
+        setMobileView('editor');
       })
       .catch(() => {});
   }, [initialPageId]);
@@ -96,6 +104,7 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
     const p = await api.createPage(activeNb, t('notes.untitled'));
     reloadPages(activeNb);
     void openPage(p.id);
+    setMobileView('editor');
   }
 
   async function openPage(id: string) {
@@ -107,7 +116,10 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
   async function deletePage(id: string) {
     if (!(await dialog.confirm({ title: t('common.deleteConfirm'), danger: true }))) return;
     await api.deletePage(id);
-    if (page?.id === id) setPage(null);
+    if (page?.id === id) {
+      setPage(null);
+      setMobileView('pages'); // avoid stranding the phone on an empty editor
+    }
     if (activeNb) reloadPages(activeNb);
   }
 
@@ -249,9 +261,9 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
 
   return (
     <div className="flex h-full">
-      {railCollapsed && (
+      {collapsed && (
         /* Collapsed: notebooks and pages become two thin vertical-tab columns side by side. */
-        <div className="flex shrink-0 border-r border-line bg-sidebar">
+        <div className="hidden shrink-0 border-r border-line bg-sidebar md:flex">
           {/* Notebooks column (with the expand chevron on top). */}
           <div className="flex w-11 flex-col items-center gap-1 py-2">
             <button
@@ -301,10 +313,10 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
           </div>
         </div>
       )}
-      {!railCollapsed && (
+      {!collapsed && (
         <>
-      {/* Notebooks pane */}
-      <div className="flex w-48 shrink-0 flex-col border-r border-line bg-sidebar">
+      {/* Notebooks pane — full width on phones (drill-down step 1), fixed on desktop. */}
+      <div className={`${mobileView === 'notebooks' ? 'flex' : 'hidden'} w-full shrink-0 flex-col border-r border-line bg-sidebar md:flex md:w-48`}>
         <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase text-muted">
           {t('notes.notebooks')}
           <button onClick={addNotebook} className="hover:text-brand" title={t('notes.addNotebook')}>＋</button>
@@ -317,7 +329,7 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
                 <input type="color" className="sr-only" value={nb.color ?? '#808080'} onChange={(e) => void recolorNotebook(nb.id, e.target.value)} />
               </label>
               <button
-                onClick={() => setActiveNb(nb.id)}
+                onClick={() => { setActiveNb(nb.id); setMobileView('pages'); }}
                 onDoubleClick={() => void renameNotebook(nb)}
                 title={t('notes.renameHint')}
                 className={`flex-1 truncate px-2 py-1.5 text-left text-sm ${activeNb === nb.id ? 'font-medium text-brand' : 'text-ink'}`}
@@ -335,10 +347,20 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
         </div>
       </div>
 
-      {/* Pages pane */}
-      <div className="flex w-60 shrink-0 flex-col border-r border-line">
+      {/* Pages pane — full width on phones (drill-down step 2), fixed on desktop. */}
+      <div className={`${mobileView === 'pages' ? 'flex' : 'hidden'} w-full shrink-0 flex-col border-r border-line md:flex md:w-60`}>
         <div className="flex items-center justify-between px-3 py-2 text-xs font-semibold uppercase text-muted">
-          {t('notes.pages')}
+          <div className="flex items-center gap-1">
+            {/* Back to notebooks (phones only). */}
+            <button
+              onClick={() => setMobileView('notebooks')}
+              aria-label={t('notes.notebooks')}
+              className="-ml-1 flex h-6 w-6 items-center justify-center rounded text-muted hover:text-brand md:hidden"
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 4l-6 6 6 6" /></svg>
+            </button>
+            <span>{t('notes.pages')}</span>
+          </div>
           {activeNb && (
             <div className="flex items-center gap-2">
               <button
@@ -373,7 +395,7 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
                 <input type="color" className="sr-only" value={p.color ?? '#cccccc'} onChange={(e) => void recolorPage(p.id, e.target.value)} />
               </label>
               <button
-                onClick={() => void openPage(p.id)}
+                onClick={() => { void openPage(p.id); setMobileView('editor'); }}
                 className={`flex-1 truncate px-1 py-2 text-left text-sm ${page?.id === p.id ? 'bg-brand-soft font-medium text-brand' : 'text-ink hover:bg-line/60'}`}
                 style={p.color ? { borderLeft: `3px solid ${p.color}` } : undefined}
               >
@@ -395,50 +417,64 @@ export function NotesView({ initialPageId }: { initialPageId?: string }) {
         title={t('notes.collapsePanels')}
         aria-label={t('notes.collapsePanels')}
         aria-expanded={true}
-        className="group flex w-3 shrink-0 cursor-pointer items-center justify-center border-r border-line bg-sidebar transition-colors hover:bg-brand-soft"
+        className="group hidden w-3 shrink-0 cursor-pointer items-center justify-center border-r border-line bg-sidebar transition-colors hover:bg-brand-soft md:flex"
       >
         <svg viewBox="0 0 20 20" className="h-4 w-4 text-muted transition-colors group-hover:text-brand" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 4l-6 6 6 6" /></svg>
       </button>
         </>
       )}
 
-      {/* Editor pane */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Editor pane — full screen on phones (drill-down step 3), flex-1 on desktop. */}
+      <div className={`${mobileView === 'editor' ? 'block' : 'hidden'} flex-1 overflow-y-auto md:block`}>
         {page ? (
-          <div className="mx-auto max-w-4xl px-8 py-6">
-            <input
-              value={page.title}
-              onChange={(e) => edit({ title: e.target.value })}
-              placeholder={t('notes.untitled')}
-              className="w-full border-b border-line pb-2 text-2xl font-bold text-ink outline-none"
-            />
-            <div className="mt-1 flex items-center justify-between text-xs text-muted">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => void toggleRag()}
-                  title={t('notes.ragHint')}
-                  className={`rounded-md border px-2 py-0.5 ${page.inRag ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted hover:text-ink'}`}
+          <div className="mx-auto max-w-4xl px-4 py-5 md:px-8 md:py-6">
+            {/* Compact header on phones: the back link (left) and the title (right)
+                share one row to save vertical space; on desktop the title is a
+                full-width heading and the back link is hidden. */}
+            <div className="flex items-center gap-2 border-b border-line pb-2 md:block md:border-0 md:pb-0">
+              <button
+                onClick={() => setMobileView('pages')}
+                aria-label={t('notes.pages')}
+                className="-ml-1 flex shrink-0 items-center gap-1 text-sm text-muted hover:text-brand md:hidden"
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 4l-6 6 6 6" /></svg>
+                {t('notes.pages')}
+              </button>
+              <input
+                value={page.title}
+                onChange={(e) => edit({ title: e.target.value })}
+                placeholder={t('notes.untitled')}
+                className="min-w-0 flex-1 bg-transparent text-right text-lg font-bold text-ink outline-none md:w-full md:border-b md:border-line md:pb-2 md:text-left md:text-2xl"
+              />
+            </div>
+            {/* Page AI actions + save status. Wraps on narrow screens; the status
+                is pushed to the right (ml-auto) instead of a rigid justify-between,
+                and chips share the mode-toggle height for an even toolbar. */}
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+              <button
+                onClick={() => void toggleRag()}
+                title={t('notes.ragHint')}
+                className={`rounded-md border px-2.5 py-1 ${page.inRag ? 'border-brand bg-brand-soft text-brand' : 'border-line text-muted hover:text-ink'}`}
+              >
+                {page.inRag ? `🧠 ${t('notes.ragOnLabel')}` : `🧠 ${t('notes.ragAdd')}`}
+              </button>
+              {!page.inRag && (
+                <span
+                  title={t('notes.ragOffNotice')}
+                  className="inline-flex items-center gap-1 rounded-md border border-amber-400/60 bg-amber-50 px-2.5 py-1 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-400"
                 >
-                  {page.inRag ? `🧠 ${t('notes.ragOnLabel')}` : `🧠 ${t('notes.ragAdd')}`}
-                </button>
-                {!page.inRag && (
-                  <span
-                    title={t('notes.ragOffNotice')}
-                    className="inline-flex items-center gap-1 rounded-md border border-amber-400/60 bg-amber-50 px-2 py-0.5 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-400"
-                  >
-                    ⚠️ {t('notes.ragOffBadge')}
-                  </span>
-                )}
-                <button
-                  onClick={() => void convertPageToTasks()}
-                  disabled={aiBusy}
-                  title={t('notes.toTasksHint')}
-                  className="rounded-md border border-line px-2 py-0.5 text-muted hover:text-ink disabled:opacity-40"
-                >
-                  {aiBusy ? `⏳ ${t('notes.toTasks')}` : `✓ ${t('notes.toTasks')}`}
-                </button>
-              </div>
-              <span>{saved ? t('notes.saved') : t('notes.saving')}</span>
+                  ⚠️ {t('notes.ragOffBadge')}
+                </span>
+              )}
+              <button
+                onClick={() => void convertPageToTasks()}
+                disabled={aiBusy}
+                title={t('notes.toTasksHint')}
+                className="rounded-md border border-line px-2.5 py-1 text-muted hover:text-ink disabled:opacity-40"
+              >
+                {aiBusy ? `⏳ ${t('notes.toTasks')}` : `✓ ${t('notes.toTasks')}`}
+              </button>
+              <span className="ml-auto shrink-0 self-center">{saved ? t('notes.saved') : t('notes.saving')}</span>
             </div>
             <NotesDocument
               key={page.id}
